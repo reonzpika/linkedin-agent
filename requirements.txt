@@ -1,0 +1,27 @@
+# Core orchestration
+langgraph>=0.2.0
+langchain-anthropic>=0.3.0
+langchain-core>=0.3.0
+
+# Search and web fetching
+tavily-python>=0.5.0
+# Firecrawl: official SDK package name is firecrawl-py (see docs.firecrawl.dev/sdks/python)
+firecrawl-py>=1.0.0
+
+# Browser automation
+playwright>=1.49.0
+
+# Persistence
+redis>=5.0.0
+langgraph-checkpoint-redis>=0.0.7
+
+# Observability (optional; used when LANGSMITH_API_KEY is present)
+langsmith>=0.2.0
+
+# Utilities
+python-dotenv>=1.0.0
+loguru>=0.7.0
+
+# Code quality
+black>=24.0.0
+mypy>=1.11.0

@@ -1,0 +1,7 @@
+Read AGENTS.md at the start of every session before taking any action.
+Always check /tools/ before creating a new utility script.
+Always check /knowledge/ before making any assumption about NZ health context, voice, or algorithmic rules.
+The WAT Framework governs this repo; full rules are in AGENTS.md.
+graph/state.py is the single source of truth for all data flowing between nodes.
+All generated content must use New Zealand English spelling.
+Never use an em dash in any generated content; use a comma, full stop, or rewrite the sentence.

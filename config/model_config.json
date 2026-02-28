@@ -1,0 +1,18 @@
+{
+  "researcher": {
+    "model": "claude-3-5-sonnet-20241022",
+    "reason": "High reasoning required for NZ health policy synthesis"
+  },
+  "scout": {
+    "model": "claude-3-5-haiku-20241022",
+    "reason": "Lower-cost data processing for LinkedIn discovery tasks"
+  },
+  "architect": {
+    "model": "claude-3-5-sonnet-20241022",
+    "reason": "High-quality writing required for voice-accurate drafting"
+  },
+  "strategist": {
+    "model": "claude-3-5-sonnet-20241022",
+    "reason": "Reflection and critique require strongest reasoning capability"
+  }
+}
