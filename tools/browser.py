@@ -53,6 +53,180 @@ def get_browser_context() -> Any:
     return _get()
 
 
+def scrape_personal_feed(context: Any, max_posts: int = 20) -> list[dict[str, Any]]:
+    """
+    Navigate to LinkedIn personal feed, scrape recent posts.
+    Returns list of {name, url, post_url, snippet, posted_date}.
+    """
+    page = context.new_page()
+    results: list[dict[str, Any]] = []
+    try:
+        page.goto(
+            "https://www.linkedin.com/feed/",
+            wait_until="domcontentloaded",
+            timeout=20000,
+        )
+        _random_delay()
+        dismiss_modal_if_present(page)
+
+        page.evaluate("window.scrollBy(0, 1000)")
+        _random_delay()
+
+        posts = page.locator("[data-id*='urn:li:activity']").all()[:max_posts]
+
+        for post in posts:
+            try:
+                author_elem = post.locator(".update-components-actor__name").first
+                name = (
+                    author_elem.inner_text()[:80]
+                    if author_elem.count() > 0
+                    else "LinkedIn User"
+                )
+
+                link = post.locator(
+                    "a[href*='/posts/'], a[href*='/feed/update']"
+                ).first
+                if link.count() == 0:
+                    continue
+                href = link.get_attribute("href") or ""
+                post_url = (
+                    href
+                    if href.startswith("http")
+                    else f"https://www.linkedin.com{href}"
+                )
+
+                desc_elem = post.locator(
+                    ".feed-shared-update-v2__description"
+                ).first
+                snippet = (
+                    desc_elem.inner_text()[:200]
+                    if desc_elem.count() > 0
+                    else ""
+                )
+
+                time_elem = post.locator("time").first
+                posted_date = (
+                    time_elem.get_attribute("datetime") or ""
+                    if time_elem.count() > 0
+                    else ""
+                )
+
+                results.append({
+                    "name": name,
+                    "url": post_url,
+                    "post_url": post_url,
+                    "snippet": snippet,
+                    "posted_date": posted_date,
+                })
+            except Exception:
+                continue
+
+        return results
+    except Exception as e:
+        logger.warning(f"scrape_personal_feed failed: {e}")
+        return []
+    finally:
+        page.close()
+
+
+def scrape_hashtag_posts(
+    context: Any,
+    hashtags: list[str],
+    max_posts: int = 20,
+) -> list[dict[str, Any]]:
+    """
+    Navigate to LinkedIn hashtag feeds, scrape recent posts.
+    Returns list of {name, url, post_url, snippet, posted_date}.
+    """
+    page = context.new_page()
+    all_results: list[dict[str, Any]] = []
+    seen_urls: set[str] = set()
+
+    try:
+        for hashtag in hashtags[:3]:
+            clean_tag = hashtag.strip("#").lower()
+            try:
+                page.goto(
+                    f"https://www.linkedin.com/feed/hashtag/{clean_tag}/",
+                    wait_until="domcontentloaded",
+                    timeout=20000,
+                )
+                _random_delay()
+                dismiss_modal_if_present(page)
+                page.evaluate("window.scrollBy(0, 1000)")
+                _random_delay()
+
+                posts = page.locator("[data-id*='urn:li:activity']").all()[:10]
+
+                for post in posts:
+                    try:
+                        author_elem = post.locator(
+                            ".update-components-actor__name"
+                        ).first
+                        name = (
+                            author_elem.inner_text()[:80]
+                            if author_elem.count() > 0
+                            else "LinkedIn User"
+                        )
+
+                        link = post.locator(
+                            "a[href*='/posts/'], a[href*='/feed/update']"
+                        ).first
+                        if link.count() == 0:
+                            continue
+                        href = link.get_attribute("href") or ""
+                        post_url = (
+                            href
+                            if href.startswith("http")
+                            else f"https://www.linkedin.com{href}"
+                        )
+
+                        if post_url in seen_urls:
+                            continue
+                        seen_urls.add(post_url)
+
+                        desc_elem = post.locator(
+                            ".feed-shared-update-v2__description"
+                        ).first
+                        snippet = (
+                            desc_elem.inner_text()[:200]
+                            if desc_elem.count() > 0
+                            else ""
+                        )
+
+                        time_elem = post.locator("time").first
+                        posted_date = (
+                            time_elem.get_attribute("datetime") or ""
+                            if time_elem.count() > 0
+                            else ""
+                        )
+
+                        all_results.append({
+                            "name": name,
+                            "url": post_url,
+                            "post_url": post_url,
+                            "snippet": snippet,
+                            "posted_date": posted_date,
+                        })
+
+                        if len(all_results) >= max_posts:
+                            break
+                    except Exception:
+                        continue
+
+                if len(all_results) >= max_posts:
+                    break
+            except Exception:
+                continue
+
+        return all_results[:max_posts]
+    except Exception as e:
+        logger.warning(f"scrape_hashtag_posts failed: {e}")
+        return []
+    finally:
+        page.close()
+
+
 def post_comment(context: Any, post_url: str, comment_text: str) -> dict[str, Any]:
     """
     Navigate to post_url, open comment box, post comment_text. Uses semantic/accessibility

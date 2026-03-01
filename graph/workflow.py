@@ -5,6 +5,7 @@ Planner -> Researcher -> Scout -> Architect -> Strategist -> Human review (inter
 
 import os
 from datetime import datetime
+from typing import Any
 
 from langgraph.graph import END, START, StateGraph
 
@@ -239,6 +240,106 @@ def build_graph():
     builder.add_edge("executor", END)
 
     return builder
+
+
+def build_graph_prepare():
+    """Build graph for preparation only: planner -> researcher -> scout -> architect -> strategist -> (architect | END)."""
+    builder = StateGraph(LinkedInContext)
+    builder.add_node("planner", planner_node)
+    builder.add_node("researcher", researcher_node)
+    builder.add_node("scout", scout_node)
+    builder.add_node("architect", architect_node)
+    builder.add_node("strategist", strategist_node)
+
+    builder.add_edge(START, "planner")
+    builder.add_edge("planner", "researcher")
+    builder.add_edge("researcher", "scout")
+    builder.add_edge("scout", "architect")
+    builder.add_edge("architect", "strategist")
+    builder.add_conditional_edges(
+        "strategist",
+        _strategist_routing_prepare,
+        {"architect": "architect", "end": END},
+    )
+
+    return builder
+
+
+def _strategist_routing_prepare(state: LinkedInContext) -> str:
+    """Route from strategist: end if approved or max revisions, else architect (revision loop)."""
+    if state.get("strategist_approved") is True:
+        return "end"
+    revision = state.get("revision_count") or 0
+    if revision >= 2:
+        return "end"
+    return "architect"
+
+
+def executor_run(state: dict, context: Any) -> dict:
+    """
+    Execute Golden Hour posting protocol. Called standalone by execute_post.py.
+    Posts 6 pre-engagement comments then schedules main post. Raises RuntimeError on failure.
+    """
+    from datetime import timedelta
+    from tools.browser import post_comment, schedule_post
+
+    scout_targets = (state.get("scout_targets") or [])[:6]
+    comments_list = state.get("comments_list") or []
+    post_draft = state.get("post_draft") or ""
+    first_comment = state.get("first_comment") or ""
+
+    results: list[dict] = []
+
+    for i, target in enumerate(scout_targets):
+        if i >= len(comments_list):
+            break
+        comment_text = comments_list[i]
+        post_url = target.get("post_url") or target.get("url")
+        if post_url and comment_text:
+            r = post_comment(context, post_url, comment_text)
+            results.append({
+                "type": "comment",
+                "target": target.get("name", ""),
+                "post_url": post_url,
+                "result": r,
+            })
+            if not r.get("success"):
+                raise RuntimeError(
+                    r.get("error", "post_comment failed")
+                )
+
+    n = datetime.utcnow()
+    days_ahead = (1 - n.weekday()) % 7
+    if days_ahead == 0 and n.hour >= 21:
+        days_ahead = 7
+    scheduled = (
+        (n + timedelta(days=days_ahead))
+        .replace(hour=19, minute=0, second=0, microsecond=0)
+        .isoformat()
+        + "Z"
+    )
+    r = schedule_post(context, post_draft, first_comment, scheduled)
+    results.append({"type": "main_post", "result": r})
+    if not r.get("success"):
+        raise RuntimeError(r.get("error", "schedule_post failed"))
+
+    return {"execution_results": results}
+
+
+def get_compiled_graph_prepare():
+    """
+    Compile graph for preparation only (stops after strategist).
+    Used by prepare_post.py. No human_review or executor nodes.
+    """
+    from graph.persistence import get_checkpointer
+
+    builder = build_graph_prepare()
+    checkpointer = get_checkpointer()
+    if checkpointer is not None:
+        checkpointer.setup()
+    return builder.compile(
+        checkpointer=checkpointer if checkpointer is not None else None
+    )
 
 
 def get_compiled_graph():

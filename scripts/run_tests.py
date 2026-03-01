@@ -57,6 +57,8 @@ def phase1_imports():
             dismiss_modal_if_present,
             post_comment,
             schedule_post,
+            scrape_personal_feed,
+            scrape_hashtag_posts,
         )
         from agents.researcher import run as researcher_run
         from agents.scout import run as scout_run

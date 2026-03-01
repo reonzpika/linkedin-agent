@@ -16,7 +16,7 @@ from agents.researcher import run as researcher_run
 from agents.architect import run as architect_run
 from agents.strategist import run as strategist_run
 
-# Realistic mock scout_targets so Architect prompt has valid structure (avoids malformed draft / Strategist word-count failure)
+# Realistic mock scout_targets so Architect prompt has valid structure (6 targets; Architect drafts 6 comments)
 MOCK_SCOUT_TARGETS = [
     {
         "name": "Jane Smith",
@@ -35,6 +35,24 @@ MOCK_SCOUT_TARGETS = [
         "url": "https://www.linkedin.com/company/rnzcgp",
         "post_url": "https://www.linkedin.com/feed/update/urn:li:activity:789",
         "rationale": "Royal College; authority on GP standards and ALEX context.",
+    },
+    {
+        "name": "Dr Jane Smith",
+        "url": "https://linkedin.com/in/janesmith",
+        "post_url": "https://linkedin.com/posts/abc4",
+        "rationale": "Practice efficiency discussion.",
+    },
+    {
+        "name": "Tom Wilson - Practice Manager",
+        "url": "https://linkedin.com/in/tomwilson",
+        "post_url": "https://linkedin.com/posts/abc5",
+        "rationale": "Admin burden insights.",
+    },
+    {
+        "name": "Dr Lisa Chen",
+        "url": "https://linkedin.com/in/lisachen",
+        "post_url": "https://linkedin.com/posts/abc6",
+        "rationale": "Workforce retention strategies.",
     },
 ]
 
@@ -111,19 +129,16 @@ if __name__ == "__main__":
         print("\n=== Agent pipeline: STOPPED (dehallucination interrupt) ===")
         sys.exit(0)
 
-    # Inject realistic mock scout_targets and comments_list so Architect and quality checks see valid structure (test skips Scout)
+    # Inject 6 mock scout_targets; Architect fills comments_list (test skips Scout)
     state["scout_targets"] = MOCK_SCOUT_TARGETS
-    state["comments_list"] = [
-        "Substantive comment on primary care admin.",
-        "Another point on Medtech and practice workflow.",
-        "Agree; important for NZ primary care.",
-        "Good point on infrastructure.",
-        "Relevant for practice managers.",
-        "Thanks for sharing.",
-    ]
+    state["comments_list"] = []
 
     architect_result = test_architect(state)
     state.update(architect_result)
+
+    assert len(state.get("comments_list", [])) == 6, (
+        "Architect must generate 6 comments"
+    )
 
     # Quality: no engagement bait in first_comment/comments_list; ALEX not described as crashing
     from tests.test_quality import run_quality_assertions_on_state

@@ -1,10 +1,10 @@
 """
-LinkedIn Scout: Golden Hour target discovery and 6 pre-engagement comments.
-Uses search_linkedin_topic and browser; reads outputs/**/engagement.json to avoid repeats; drafts comments from voice.
-Serper organic results often return profile or article URLs; we prefer post-like URLs and log when none are found.
+LinkedIn Scout: Golden Hour target discovery via personal feed + hashtag scraping.
+Returns 6 recent post targets for engagement; does NOT draft comments (Architect's job).
 """
 
 import json
+import re
 from pathlib import Path
 
 from graph.state import LinkedInContext
@@ -13,29 +13,8 @@ KNOWLEDGE = Path(__file__).resolve().parent.parent / "knowledge"
 OUTPUTS = Path(__file__).resolve().parent.parent / "outputs"
 
 
-def _is_post_like_url(url: str) -> bool:
-    """True if URL looks like a LinkedIn post (feed update or activity), not a profile or article."""
-    u = (url or "").strip().lower()
-    return "/posts/" in u or "/feed/update" in u or "activity:" in u or "/feed/update/" in u
-
-
-def run(state: LinkedInContext) -> dict:
-    """
-    Discover 5-6 scout targets (name, url, post_url, rationale) and draft 6 comments.
-    Returns state update with scout_targets and comments_list.
-    """
-    raw_input = state.get("raw_input") or ""
-    research_summary = state.get("research_summary") or ""
-    pillar = state.get("pillar") or "pillar_1"
-
-    voice_path = KNOWLEDGE / "voice_profile.md"
-    voice = (
-        voice_path.read_text(encoding="utf-8")
-        if voice_path.exists()
-        else "First-person, direct, substantive."
-    )
-
-    # Avoid recent engagement targets (read all engagement.json in outputs)
+def _load_recent_engagement_urls() -> set[str]:
+    """Load URLs from all engagement.json files to avoid repeats."""
     recent_urls = set()
     if OUTPUTS.exists():
         for p in OUTPUTS.rglob("engagement.json"):
@@ -47,70 +26,112 @@ def run(state: LinkedInContext) -> dict:
                         recent_urls.add(u)
             except Exception:
                 pass
+    return recent_urls
 
-    from tools.search import search_linkedin_topic
 
-    query = f"NZ GP practice manager primary care {raw_input}"
-    results = search_linkedin_topic(query)
-    # Filter to avoid recent
-    candidates = [r for r in results if r.get("url") and r["url"] not in recent_urls][
-        :10
-    ]
-    # Prefer post-like URLs (Serper often returns profile/article URLs; comments need actual post URLs)
-    candidates.sort(key=lambda r: (0 if _is_post_like_url(r.get("url", "")) else 1))
-    scout_targets = []
-    for r in candidates[:6]:
-        url = r.get("url", "")
-        scout_targets.append(
-            {
-                "name": r.get("title", "LinkedIn")[:80],
-                "url": url,
-                "post_url": url,
-                "rationale": r.get("snippet", "")[:200],
-            }
-        )
+def _filter_spam_and_recruiters(posts: list[dict]) -> list[dict]:
+    """Filter out recruiters, hiring posts, vendor spam."""
+    filtered = []
+    for post in posts:
+        author_name = (post.get("name") or "").lower()
+        snippet = (post.get("snippet") or "").lower()
 
-    if len(scout_targets) < 5 and results:
-        for r in results:
-            if r.get("url") and not any(t["url"] == r["url"] for t in scout_targets):
-                url = r.get("url", "")
-                scout_targets.append(
-                    {
-                        "name": r.get("title", "LinkedIn")[:80],
-                        "url": url,
-                        "post_url": url,
-                        "rationale": r.get("snippet", "")[:200],
-                    }
-                )
-                if len(scout_targets) >= 6:
-                    break
+        if any(
+            word in author_name
+            for word in [
+                "recruiter",
+                "hiring",
+                "recruitment",
+                "talent acquisition",
+            ]
+        ):
+            continue
 
-    # Log when Serper returned no post-like URLs so we are not silently using profile/article URLs
-    post_like_count = sum(1 for t in scout_targets if _is_post_like_url(t.get("post_url", "")))
-    log_entries = []
-    if post_like_count == 0 and scout_targets:
-        from datetime import datetime
-        log_entries.append(
-            f"[{datetime.utcnow().isoformat()}Z] Scout: No post-like URLs in Serper results; using profile/article URLs as fallback. Golden Hour comments may target profile pages rather than specific posts."
-        )
+        if any(
+            phrase in snippet
+            for phrase in [
+                "we're hiring",
+                "job opening",
+                "apply now",
+                "join our team",
+            ]
+        ):
+            continue
 
-    # Draft 6 comments in Dr Ryo's voice (2-3 sentences, substantive)
-    from agents._llm import invoke
+        if any(
+            phrase in snippet
+            for phrase in ["buy now", "limited offer", "demo", "free trial"]
+        ):
+            continue
 
-    system = f"""You are drafting 6 short LinkedIn comments for Golden Hour pre-engagement. Voice: {voice[:2000]}
-Rules: 2-3 sentences each; substantive; reference a specific point from the target; no generic praise. Output exactly 6 lines, one comment per line. No numbering or bullets."""
-    user = f"Topic: {raw_input}. Research context: {research_summary[:1500]}. Targets (use their rationale to tailor): {json.dumps([t.get('rationale','') for t in scout_targets[:6]])}"
-    out = invoke("scout", system, user)
-    lines = [ln.strip() for ln in out.strip().split("\n") if ln.strip()][:6]
-    while len(lines) < 6:
-        lines.append("Agree; this is an important point for NZ primary care.")
-    comments_list = lines[:6]
-    # Ensure comments_list aligns with scout_targets by index (executor maps comment i to target i)
-    while len(comments_list) < len(scout_targets):
-        comments_list.append("Agree; this is an important point for NZ primary care.")
-    comments_list = comments_list[:6]
+        filtered.append(post)
 
-    out_update = {"scout_targets": scout_targets, "comments_list": comments_list}
-    if log_entries:
-        out_update["logs"] = log_entries
-    return out_update
+    return filtered
+
+
+def run(state: LinkedInContext) -> dict:
+    """
+    Find 6 recent posts from target audience for Golden Hour engagement.
+    Primary: scrape personal feed. Fallback: hashtag scraping if <6 found.
+    Returns scout_targets only (no comments).
+    """
+    raw_input = state.get("raw_input") or ""
+    recent_urls = _load_recent_engagement_urls()
+
+    from tools.browser import get_browser_context, scrape_personal_feed, scrape_hashtag_posts
+
+    ctx = get_browser_context()
+    scout_targets: list[dict] = []
+
+    try:
+        feed_posts = scrape_personal_feed(ctx, max_posts=20)
+
+        filtered = _filter_spam_and_recruiters(feed_posts)
+        filtered = [p for p in filtered if p.get("post_url") not in recent_urls]
+
+        if raw_input:
+            keywords = raw_input.lower().split()[:3]
+            relevant = []
+            for post in filtered:
+                snippet = (post.get("snippet") or "").lower()
+                if any(kw in snippet for kw in keywords):
+                    relevant.append(post)
+            if len(relevant) >= 3:
+                filtered = relevant
+
+        scout_targets = filtered[:6]
+
+        if len(scout_targets) < 6:
+            hashtag_path = KNOWLEDGE / "hashtag_library.md"
+            if hashtag_path.exists():
+                hashtag_text = hashtag_path.read_text(encoding="utf-8")
+                hashtags = re.findall(r"#[A-Za-z0-9_]+", hashtag_text)[:5]
+
+                if hashtags:
+                    hashtag_posts = scrape_hashtag_posts(
+                        ctx, hashtags, max_posts=20
+                    )
+                    filtered_hashtag = _filter_spam_and_recruiters(
+                        hashtag_posts
+                    )
+                    filtered_hashtag = [
+                        p
+                        for p in filtered_hashtag
+                        if p.get("post_url") not in recent_urls
+                    ]
+
+                    for post in filtered_hashtag:
+                        if len(scout_targets) >= 6:
+                            break
+                        if post.get("post_url") not in [
+                            t.get("post_url") for t in scout_targets
+                        ]:
+                            scout_targets.append(post)
+    finally:
+        ctx.close()
+
+    for target in scout_targets:
+        if "snippet" in target and "rationale" not in target:
+            target["rationale"] = target["snippet"]
+
+    return {"scout_targets": scout_targets}

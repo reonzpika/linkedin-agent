@@ -40,6 +40,11 @@ research_summary: [max 300 words, synthesised from the provided sources; NZ focu
 target_urls: [comma-separated list of 3-5 source URLs from the context]
 </SOLUTION>
 
+Pillar classification rules:
+- pillar_1 (NZ Primary Care Infrastructure): Medtech, HealthLink, clinical software, APIs, cloud migrations, technical infrastructure, what breaks and why
+- pillar_2 (Building in Public): Product development, GP feedback, feature shipping, learning from users, what GPs actually want vs what they say
+- pillar_3 (Policy/Admin): Workforce issues, regulatory changes, practice management, admin burden, government policy, PHO communications
+
 NZ context (glossary): {nz_context[:3000]}
 
 Dehallucination: if the topic touches any of these, output instead a single line: DEHALLUCINATION: [the exact clarification question from the table]. Topics: {dehallucination[:2000]}

@@ -6,6 +6,7 @@ Research pipeline: Tavily search + Crawl4AI fetch + Claude Haiku summarisation.
 
 import asyncio
 import os
+import sys
 from concurrent import futures
 from typing import Any
 
@@ -127,8 +128,21 @@ def _run_async_fetch(url: str) -> str:
                 word_count_threshold=10,
                 page_timeout=30_000,
             )
-            async with AsyncWebCrawler(config=browser_config) as crawler:
-                result = await crawler.arun(url=url, config=run_config)
+            # Suppress stdout/stderr on Windows to avoid charmap encoding errors from Crawl4AI
+            original_stdout = sys.stdout
+            original_stderr = sys.stderr
+            try:
+                if os.name == "nt":
+                    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+                    sys.stderr = open(os.devnull, "w", encoding="utf-8")
+                async with AsyncWebCrawler(config=browser_config) as crawler:
+                    result = await crawler.arun(url=url, config=run_config)
+            finally:
+                if os.name == "nt":
+                    sys.stdout.close()
+                    sys.stderr.close()
+                sys.stdout = original_stdout
+                sys.stderr = original_stderr
             if not result or not getattr(result, "success", True):
                 return ""
             md = getattr(result, "markdown", None)

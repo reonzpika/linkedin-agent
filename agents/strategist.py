@@ -84,6 +84,12 @@ def run(state: LinkedInContext) -> dict:
     if bait_in_comments:
         failures.append("Engagement bait in comments_list: " + "; ".join(bait_in_comments))
 
+    scout_targets = state.get("scout_targets") or []
+    if scout_targets and len(comments_list) != len(scout_targets):
+        failures.append(
+            f"Comment count mismatch: {len(comments_list)} comments for {len(scout_targets)} targets"
+        )
+
     if not failures:
         return {"strategist_approved": True}
 

@@ -1,7 +1,7 @@
 # AGENTS.md — ClinicPro LinkedIn Engine
 **Stewarded by:** Cursor IDE AI Agent  
 **Owner:** Dr Ryo Eguchi, ClinicPro  
-**Last updated:** 2026-02-27  
+**Last updated:** 2026-03-01  
 **Status:** Living document — update this file whenever the system improves
 
 ---
@@ -29,12 +29,44 @@ This repo follows the WAT Framework. Before creating any new file, check whether
 | Outputs | `/outputs/` | Per-session records, never committed to git |
 | Auth | `/auth/` | LinkedIn session files, never committed to git |
 | Config | `requirements.txt` | Full dependency list — check before adding any new package |
+| Temporary | `/temporary/` | Review/approval markers and pending queue for chat orchestration (see below) |
 
 **Rules:**
 - Always check `/tools/` before writing a new utility script
 - Always check `/knowledge/` before making any assumption about NZ health context, voice, strategy, or algorithmic rules
 - Never scatter agent logic into `/tools/` or graph logic into `/agents/`
 - Never create files outside this structure without flagging the reason in chat
+
+---
+
+## Chat-Based Orchestration
+
+The system supports Cursor IDE orchestration via chat. Two entry points exist:
+
+- **`main.py`**: Full graph with human_review interrupt; run interactively (review in terminal, resume with APPROVE or edits).
+- **`prepare_post.py`**: Runs planner through strategist then exits. Writes outputs and a marker to `temporary/review_ready.json`. No pause; Cursor (or a skill) reads the marker and runs the review loop in chat. Execution is then scheduled via OS task calling `execute_post.py [session_id]`.
+
+**2-script design:**
+
+- **`prepare_post.py`**: Research, scout, draft, strategist (with revision loop). Saves to `outputs/[session_id]/` and writes `temporary/review_ready.json`. Used when orchestration is chat-driven.
+- **`execute_post.py`**: Loads `outputs/[session_id]/session_state.json`, runs Golden Hour comments then main post (via `graph.workflow.executor_run`). Called by OS scheduler or manually.
+
+**`temporary/` folder contracts:**
+
+- `temporary/review_ready.json`: Written by `prepare_post.py` when draft is ready. Signals Cursor/skill to show review.
+- `temporary/approved.json`: Written by the skill after user approves; holds session_id and scheduled time.
+- `temporary/pending_posts.json`: Queue of scheduled sessions; updated when a post is executed or cancelled.
+
+**Cursor skills** (in `.cursor/skills/`):
+
+- **linkedin-post-create**: Trigger "create linkedin post", "draft post about". Pre-flight, run `prepare_post.py`, review loop in chat, schedule via `tools/scheduler.schedule_execution`, write approved/pending markers.
+- **linkedin-post-execute**: Trigger manual "execute [session_id]" or invoked by OS scheduler. Runs `execute_post.py`, reports results.
+- **linkedin-agent-improve**: Trigger feedback on voice, structure, or facts. Maps to knowledge file, derives rule, updates file (Self-Improvement Protocol).
+
+**Agent roles (current):**
+
+- **Scout**: Discovers 6 Golden Hour targets via personal feed scraping (primary) and hashtag scraping (fallback). Does not draft comments; returns `scout_targets` only. Uses `tools/browser.scrape_personal_feed` and `scrape_hashtag_posts`.
+- **Architect**: Drafts main post, first_comment, 3–4 hashtags, and exactly 6 Golden Hour comments (one per scout target). Uses target snippets to tailor comments; comment order matches target order.
 
 ---
 
@@ -280,7 +312,7 @@ outputs/YYYY-MM-DD_[topic-slug]/
 **Rules:**
 - Topic slug must be lowercase, hyphenated, max 30 characters (e.g. `medtech-alex-update`, `admin-burden-workforce`)
 - Never overwrite an existing session folder — create a new one with an incremented suffix if needed (e.g. `2026-02-27_medtech-alex-2`)
-- The Scout agent must read all existing `engagement.json` files before selecting targets to avoid repeating the same accounts within a 4-week window
+- The Scout agent reads all existing `engagement.json` files (post_url from scout_targets) to avoid repeating the same posts. Scout uses personal feed and hashtag scraping (see `tools/browser.py`), not search API
 
 ---
 

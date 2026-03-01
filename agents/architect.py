@@ -1,7 +1,8 @@
 """
-Content Architect: Insider GP voice; drafts main post and first_comment; 3-4 hashtags; 150-300 words.
+Content Architect: Insider GP voice; drafts main post, first_comment, 3-4 hashtags, and 6 Golden Hour comments.
 """
 
+import json
 import re
 from pathlib import Path
 
@@ -12,14 +13,13 @@ KNOWLEDGE = Path(__file__).resolve().parent.parent / "knowledge"
 
 def run(state: LinkedInContext) -> dict:
     """
-    Draft main post (hook, systemic point, insider take), first_comment, and 3-4 hashtags.
-    Returns state update with post_draft, first_comment, hashtags.
+    Draft main post (hook, systemic point, insider take), first_comment, 3-4 hashtags, and 6 Golden Hour comments.
+    Returns state update with post_draft, first_comment, hashtags, comments_list.
     """
     raw_input = state.get("raw_input") or ""
     research_summary = state.get("research_summary") or ""
     pillar = state.get("pillar") or "pillar_1"
     scout_targets = state.get("scout_targets") or []
-    comments_list = state.get("comments_list") or []
 
     voice_path = KNOWLEDGE / "voice_profile.md"
     algo_path = KNOWLEDGE / "algorithm_sop.md"
@@ -42,7 +42,7 @@ def run(state: LinkedInContext) -> dict:
 
     from agents._llm import invoke
 
-    system = f"""You are the Content Architect. Draft one LinkedIn post in the "Insider GP" voice.
+    system = f"""You are the Content Architect. Draft one LinkedIn post AND 6 Golden Hour engagement comments in the "Insider GP" voice.
 
 Voice and rules: {voice[:2500]}
 
@@ -50,21 +50,32 @@ Algorithm: {algo[:1500]}
 
 Hashtag library (pick 3-4): {hashtag_lib[:1500]}
 
-First comment and engagement bait: first_comment must NOT end with or contain engagement-bait questions (e.g. "what do you think?", "what's your experience?", "share your experience", "how's your experience?"). End with a substantive point or a link placeholder only. The algorithm penalises engagement bait.
+POST REQUIREMENTS: 150-300 words. Structure: Hook (specific clinical observation) then systemic point (1-2 paragraphs) then insider take (conclusion, not question). No links in body, no banned terms, end with conclusion.
 
-Medtech/ALEX framing: When the topic involves Medtech or ALEX Intelligence Layer, describe it accurately. ALEX is an API/integration platform for third-party builders, not a clinical consultation UI. Do NOT describe ALEX as "crashing" during consultations. Acknowledge Medtech's progress (e.g. provider inbox API) before naming any remaining workflow gaps.
+FIRST COMMENT REQUIREMENTS: Placeholder for outbound URL or short comment. Links go here only. NO engagement-bait questions.
+
+GOLDEN HOUR COMMENTS (6 required): Draft exactly 6 comments for pre-engagement on other LinkedIn posts. Each: 2-3 sentences, substantive, reference specific point from target's post. Use target snippets below to tailor each comment. Must reinforce pillar positioning of your main post. NO generic praise, NO engagement-bait questions. Comment order MUST match target order: comment 1 for target 1, comment 2 for target 2, etc.
+
+Medtech/ALEX framing: ALEX is API/integration platform, not clinical UI. Don't describe as "crashing". Acknowledge Medtech progress before naming gaps.
 
 Output format (use exactly this):
 <SOLUTION>
 post_draft:
-[150-300 words. Structure: Hook (1-2 sentences, specific clinical observation) then systemic point (1-2 paragraphs) then insider take (1 paragraph, conclusion not question). No links in body. No banned terms.]
+[150-300 words]
 first_comment:
-[Placeholder for outbound URL or short first comment; links go here only. No engagement-bait questions.]
+[Placeholder or short comment; no engagement bait]
 hashtags:
 [3-4 hashtags, one per line]
-</SOLUTION>"""
+</SOLUTION>
 
-    user = f"Topic: {raw_input}. Pillar: {pillar}. Research: {research_summary[:2000]}."
+<COMMENTS>
+[Exactly 6 lines, one comment per line. Line 1 for target 1, line 2 for target 2, etc.]
+</COMMENTS>"""
+
+    user = f"""Topic: {raw_input}. Pillar: {pillar}. Research: {research_summary[:2000]}.
+
+Scout targets for Golden Hour engagement (draft tailored comments for each):
+{json.dumps([{"index": i + 1, "name": t.get("name", ""), "snippet": t.get("rationale", "")[:200]} for i, t in enumerate(scout_targets[:6])], indent=2)}"""
     out = invoke("architect", system, user)
 
     post_draft = ""
@@ -90,8 +101,28 @@ hashtags:
         post_draft = out[:3000]
     if not hashtags:
         hashtags = ["#NewZealandGP", "#PrimaryHealthCare", "#MedtechNZ"]
+
+    comments_match = re.search(
+        r"<COMMENTS>\s*(.*?)\s*</COMMENTS>", out, re.DOTALL
+    )
+    if comments_match:
+        comments_block = comments_match.group(1).strip()
+        comments_list = [
+            ln.strip()
+            for ln in comments_block.split("\n")
+            if ln.strip()
+        ][:6]
+    else:
+        comments_list = []
+    while len(comments_list) < 6:
+        comments_list.append(
+            "Interesting perspective. This aligns with what we're seeing in NZ primary care."
+        )
+    comments_list = comments_list[:6]
+
     return {
         "post_draft": post_draft,
         "first_comment": first_comment,
         "hashtags": hashtags,
+        "comments_list": comments_list,
     }
