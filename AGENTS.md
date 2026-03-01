@@ -24,7 +24,7 @@ This repo follows the WAT Framework. Before creating any new file, check whether
 |---|---|---|
 | Workflows | `/knowledge/` | Markdown SOPs, strategy, voice rules, NZ health context |
 | Agents | `/agents/` | Individual agent node logic |
-| Tools | `/tools/` | Single-purpose Python scripts (browser, search, Firecrawl) |
+| Tools | `/tools/` | Single-purpose Python scripts (browser, search, Crawl4AI) |
 | Graph | `/graph/` | LangGraph orchestration, state schema, persistence |
 | Outputs | `/outputs/` | Per-session records, never committed to git |
 | Auth | `/auth/` | LinkedIn session files, never committed to git |
@@ -243,10 +243,24 @@ If the Strategist rejects a draft twice and the third revision still fails:
 
 ### Redis checkpoint failures
 
+**Production requires Redis.** The real system must not silently run without it. Interrupt/resume and Time Travel Debugging depend on the checkpointer. When Redis is unavailable at startup (e.g. local test without Redis running), the graph may compile without a checkpointer so the test suite can run; that fallback is for testing only.
+
 If Redis is unavailable at startup:
 1. Warn in chat: "Redis unavailable. Running without persistence. Time Travel Debugging disabled for this session."
 2. Proceed with the run using in-memory state only
 3. Save the final session state to `/outputs/[session-folder]/session_state.json` as a manual backup
+
+---
+
+## Tools layer and API keys
+
+The Researcher uses Tavily (NZ health search), Crawl4AI (local, free, full-page content), and Claude Haiku for summarisation. `research_with_agent` runs Tavily search, Crawl4AI fetch, then Claude Haiku; `fetch_page_content` uses Crawl4AI AsyncWebCrawler with `headless=True` (separate from the headed LinkedIn browser in `browser.py`). FIRECRAWL_API_KEY is no longer required. If Phase 4 fails with "Tavily: 0 results", "Crawl4AI returned 0 characters", or "research_with_agent returned empty", fix the tools first: confirm TAVILY_API_KEY (app.tavily.com), ANTHROPIC_API_KEY, and Crawl4AI install (run `python -m crawl4ai-download` if browser not installed), then re-run the test suite. On Windows, Crawl4AI uses `verbose=False` in `tools/search.py` to avoid console Unicode (charmap) errors; if issues persist, set `PYTHONIOENCODING=utf-8`.
+
+---
+
+## Output quality tests
+
+Before a live LinkedIn run, run the full test suite so output quality is checked: `python scripts/run_tests.py`. Phase 5 runs the agent pipeline (Researcher, Architect, Strategist) and Phase 5b runs quality assertions: no engagement bait in first_comment or comments_list, ALEX not described as crashing, Scout targets have post_url and required structure. The Strategist guardrail rejects engagement-bait phrases (e.g. "What's your experience?") in first_comment and comments_list. If quality tests fail, fix the agents or knowledge and re-run until they pass.
 
 ---
 

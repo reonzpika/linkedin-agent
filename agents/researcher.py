@@ -1,6 +1,6 @@
 """
 NZ Health Researcher: NZ primary care infrastructure and policy.
-Reads knowledge, runs search/fetch/agent, synthesises research_summary and target_urls; checks dehallucination.
+Reads knowledge, runs Tavily search + Crawl4AI fetch + Claude summarisation via research_with_agent; passes content to Claude for synthesis; checks dehallucination.
 """
 
 import re
@@ -24,25 +24,13 @@ def run(state: LinkedInContext) -> dict:
         encoding="utf-8"
     )
 
-    from tools.search import search_nz_health, fetch_page_content, research_with_agent
+    from tools.search import search_nz_health, research_with_agent
 
-    # NZ-contextualised search
+    # NZ-contextualised search and fetched content (Tavily + Crawl4AI + Claude Haiku via research_with_agent)
     query = f"{raw_input} New Zealand primary care"
     results = search_nz_health(query, max_results=5)
     target_urls = [r["url"] for r in results if r.get("url")][:5]
-    snippets = "\n".join(
-        f"- {r.get('title', '')}: {r.get('snippet', '')}" for r in results
-    )
-
-    # Deeper content for first URL if needed
-    full_page = ""
-    if target_urls:
-        full_page = fetch_page_content(target_urls[0])[:8000]
-
-    # Optional agent for complex queries
-    agent_response = research_with_agent(
-        f"Summarise key points relevant to NZ primary care for: {raw_input}. Max 200 words."
-    )
+    research_content = research_with_agent(f"{raw_input} New Zealand primary care")
 
     system = f"""You are an NZ Health Researcher. Use only the following context. Output a single block in this exact format:
 
@@ -57,7 +45,7 @@ NZ context (glossary): {nz_context[:3000]}
 Dehallucination: if the topic touches any of these, output instead a single line: DEHALLUCINATION: [the exact clarification question from the table]. Topics: {dehallucination[:2000]}
 """
 
-    user = f"Topic: {raw_input}\n\nSearch results:\n{snippets}\n\nFull page excerpt:\n{full_page[:4000]}\n\nAgent research:\n{agent_response[:3000]}"
+    user = f"Topic: {raw_input}\n\nFetched content (Tavily + Crawl4AI + Claude Haiku):\n{research_content[:12000]}"
 
     from agents._llm import invoke
 

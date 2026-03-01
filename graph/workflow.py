@@ -79,7 +79,8 @@ def scout_node(state: LinkedInContext) -> dict:
     """Run Scout agent; pass only <SOLUTION> output to state."""
     _, scout, _, _ = _get_agents()
     update = scout.run(state)
-    return {**update, "logs": _log(state, "scout: completed")}
+    scout_logs = (update.get("logs") or []) + _log(state, "scout: completed")
+    return {**update, "logs": scout_logs}
 
 
 def architect_node(state: LinkedInContext) -> dict:
@@ -241,12 +242,17 @@ def build_graph():
 
 
 def get_compiled_graph():
-    """Compile graph with Redis checkpointer; optionally wrap with LangSmith tracing."""
+    """Compile graph with Redis checkpointer when available; optionally wrap with LangSmith tracing.
+    Production requires Redis; when Redis is unavailable (e.g. local test), the graph compiles
+    without a checkpointer so tests can run. See graph.persistence module docstring.
+    """
     from graph.persistence import get_checkpointer
 
     builder = build_graph()
     checkpointer = get_checkpointer()
-    graph = builder.compile(checkpointer=checkpointer)
+    if checkpointer is not None:
+        checkpointer.setup()
+    graph = builder.compile(checkpointer=checkpointer if checkpointer is not None else None)
 
     if os.getenv("LANGSMITH_API_KEY"):
         try:

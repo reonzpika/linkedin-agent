@@ -17,6 +17,7 @@ Session validity: LinkedIn sessions typically last several days to weeks; re-run
 
 import os
 import sys
+import time
 from pathlib import Path
 
 # Repo root = parent of scripts/
@@ -40,8 +41,11 @@ def main() -> None:
     session_path = Path(LINKEDIN_SESSION_PATH)
     session_path.parent.mkdir(parents=True, exist_ok=True)
 
-    print("Opening browser. Log in to LinkedIn in the window that appears.")
-    print("When you see your feed, return here and press Enter to save the session.")
+    # When stdin is not a TTY (e.g. run from Cursor), input() often never receives Enter.
+    # Use a timeout so the user can log in and the session saves automatically.
+    interactive = sys.stdin.isatty()
+    wait_seconds = 120 if not interactive else None
+
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=False)
         context = browser.new_context(
@@ -53,7 +57,14 @@ def main() -> None:
         )
         page = context.new_page()
         page.goto("https://www.linkedin.com/login", wait_until="domcontentloaded")
-        input("Press Enter after you have logged in and see your feed...")
+        if interactive:
+            print("Opening browser. Log in to LinkedIn in the window that appears.")
+            print("When you see your feed, return here and press Enter to save the session.")
+            input("Press Enter after you have logged in and see your feed...")
+        else:
+            print("Opening browser. Log in to LinkedIn in the window that appears.")
+            print(f"You have {wait_seconds} seconds. Session will save automatically.")
+            time.sleep(wait_seconds)
         context.storage_state(path=str(session_path))
         browser.close()
     print(f"Session saved to {session_path}")

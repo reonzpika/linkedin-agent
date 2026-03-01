@@ -30,7 +30,7 @@ Dominant NZ GP practice management system. Products:
 NZ's primary secure clinical messaging network. Used for specialist referrals, lab results, and inter-practice communication.
 
 ### Medtech ALEX Intelligence Layer
-Medtech's API platform enabling third-party integrations. Enables gathering provider inbox results; a significant recent development for builders like ClinicPro. Recent API updates finally allow gathering provider inbox results.
+Medtech's API platform enabling third-party integrations. Enables gathering provider inbox results; a significant recent development for builders like ClinicPro. Recent API updates finally allow gathering provider inbox results. ALEX is an API/integration platform, not a clinical consultation UI; do not describe it as crashing during patient consultations.
 
 ---
 
@@ -83,4 +83,4 @@ Until then, it's manual workarounds. Every referral.
 - Do not use US health system terminology (EMR, EHR, PCP, insurance billing)
 - Do not assume NHS or Australian MBS context
 - Always ground policy references in RNZCGP or Te Whatu Ora sources, not generic international guidelines
-- Always use Firecrawl's `fetch_page_content()` or `research_with_agent()` to verify NZ-specific claims before including them; do not rely on training knowledge for current policy details
+- Use Tavily search and Firecrawl scrape (`search_nz_health`, `fetch_page_content`, `research_with_agent`) to verify NZ-specific claims before including them; do not rely on training knowledge for current policy details. No Firecrawl Agent endpoint; research is Tavily + scrape only, with Claude summarising fetched content.

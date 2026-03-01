@@ -1,16 +1,27 @@
 """
 Search and content fetching for the LinkedIn Engine.
-NZ-health search (Tavily), LinkedIn topic search (Serper), full-page fetch (Firecrawl), agent research (Firecrawl).
+NZ-health search (Tavily), LinkedIn topic search (Serper), full-page fetch (Crawl4AI).
+Research pipeline: Tavily search + Crawl4AI fetch + Claude Haiku summarisation.
 """
 
-import json
+import asyncio
 import os
-import re
+from concurrent import futures
 from typing import Any
 
 from dotenv import load_dotenv
+from loguru import logger
 
 load_dotenv()
+
+
+def _safe_exc_str(e: BaseException) -> str:
+    """ASCII-safe exception string for logging on Windows (avoids charmap encode errors)."""
+    try:
+        return str(e).encode("ascii", "replace").decode("ascii")
+    except Exception:
+        return "unknown error"
+
 
 # Preferred NZ domains for search_nz_health
 NZ_DOMAIN_PRIORITY = (
@@ -35,13 +46,13 @@ def search_nz_health(query: str, max_results: int = 5) -> list[dict[str, Any]]:
     if not api_key:
         return []
     try:
-        from tavily import TavilyClient
+        from tavily import TavilyClient  # type: ignore[import-untyped]
 
         client = TavilyClient(api_key=api_key)
         # Add NZ context to query
         q = f"{query} New Zealand"
         response = client.search(q, max_results=max_results + 10, search_depth="basic")
-        results = getattr(response, "results", []) or []
+        results = (response.get("results") if isinstance(response, dict) else getattr(response, "results", None)) or []
         out = []
         for r in results:
             url = getattr(r, "url", "") or (r.get("url") if isinstance(r, dict) else "")
@@ -79,7 +90,7 @@ def search_linkedin_topic(query: str) -> list[dict[str, Any]]:
     if not api_key:
         return []
     try:
-        import requests
+        import requests  # type: ignore[import-untyped]
 
         q = f"site:linkedin.com {query}"
         resp = requests.post(
@@ -103,69 +114,114 @@ def search_linkedin_topic(query: str) -> list[dict[str, Any]]:
         return []
 
 
+def _run_async_fetch(url: str) -> str:
+    """Run Crawl4AI async crawl; returns markdown or empty string. Used by fetch_page_content."""
+
+    async def _crawl() -> str:
+        try:
+            from crawl4ai import AsyncWebCrawler  # type: ignore[import-untyped]
+            from crawl4ai.async_configs import BrowserConfig, CrawlerRunConfig  # type: ignore[import-untyped]
+
+            browser_config = BrowserConfig(headless=True, verbose=False)
+            run_config = CrawlerRunConfig(
+                word_count_threshold=10,
+                page_timeout=30_000,
+            )
+            async with AsyncWebCrawler(config=browser_config) as crawler:
+                result = await crawler.arun(url=url, config=run_config)
+            if not result or not getattr(result, "success", True):
+                return ""
+            md = getattr(result, "markdown", None)
+            if md is None:
+                return ""
+            out = getattr(md, "fit_markdown", None) or getattr(md, "raw_markdown", None)
+            if out is None and isinstance(md, str):
+                out = md
+            return (out or "").strip()
+        except Exception as e:
+            logger.warning("Crawl4AI fetch failed for {}: {}", url, _safe_exc_str(e))
+            return ""
+
+    return asyncio.run(_crawl())
+
+
 def fetch_page_content(url: str) -> str:
     """
-    Full-page Markdown via Firecrawl scrape endpoint.
-    Returns clean Markdown; on failure returns empty string and does not crash.
+    Full-page Markdown via Crawl4AI (local, no per-call cost).
+    Uses AsyncWebCrawler with fit_markdown-style content filtering; headless=True
+    (separate from the headed LinkedIn browser in browser.py). Returns clean Markdown;
+    on failure or empty returns "" and does not crash.
     """
-    api_key = os.getenv("FIRECRAWL_API_KEY")
-    if not api_key:
+    if not (url or "").strip():
         return ""
     try:
-        from firecrawl import Firecrawl
-
-        app = Firecrawl(api_key=api_key)
-        result = app.scrape(url, formats=["markdown"])
-        if hasattr(result, "markdown"):
-            return result.markdown or ""
-        if isinstance(result, dict):
-            return (
-                result.get("markdown", "")
-                or result.get("data", {}).get("markdown", "")
-                or ""
-            )
-        return ""
-    except Exception:
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return _run_async_fetch(url)
+        with futures.ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(_run_async_fetch, url)
+            return future.result(timeout=35)
+    except Exception as e:
+        logger.warning("fetch_page_content failed for {}: {}", url, _safe_exc_str(e))
         return ""
 
 
 def research_with_agent(prompt: str) -> str:
     """
-    Firecrawl /agent endpoint: natural-language research across the web.
-    On failure, falls back to search_nz_health with extracted keywords.
+    Local research pipeline: Tavily search -> Crawl4AI fetch -> Claude Haiku summarisation.
+    Returns a single summarised string for NZ primary care relevance. Empty prompt returns "".
     """
-    api_key = os.getenv("FIRECRAWL_API_KEY")
-    if not api_key:
-        return _fallback_agent_search(prompt)
-    try:
-        from firecrawl import Firecrawl
-
-        app = Firecrawl(api_key=api_key)
-        result = app.agent(prompt=prompt)
-        if hasattr(result, "data"):
-            d = result.data
-        elif isinstance(result, dict):
-            d = result.get("data", result)
-        else:
-            d = result
-        if isinstance(d, str):
-            return d
-        if isinstance(d, dict):
-            return json.dumps(d, indent=2)
-        return str(d)
-    except Exception:
-        return _fallback_agent_search(prompt)
-
-
-def _fallback_agent_search(prompt: str) -> str:
-    """Extract simple keywords from prompt and run search_nz_health; return concatenated snippets."""
-    words = re.findall(r"[a-zA-Z0-9]+", prompt)
-    keywords = [w for w in words if len(w) > 2][:8]
-    q = " ".join(keywords)
-    results = search_nz_health(q, max_results=5)
-    if not results:
+    if not (prompt or "").strip():
         return ""
-    return "\n\n".join(
-        f"**{r.get('title', '')}**\n{r.get('snippet', '')}\nSource: {r.get('url', '')}"
-        for r in results
-    )
+    try:
+        results = search_nz_health(prompt, max_results=3)
+        if not results:
+            logger.warning("research_with_agent: search_nz_health returned no results")
+            return ""
+        collected: list[str] = []
+        for r in results:
+            if len(collected) >= 3:
+                break
+            u = r.get("url")
+            if not u:
+                continue
+            content = fetch_page_content(u)
+            if content:
+                collected.append(f"--- {u} ---\n{content[:10000]}")
+        if not collected:
+            logger.warning("research_with_agent: all fetches returned empty")
+            return ""
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not api_key:
+            logger.warning("research_with_agent: ANTHROPIC_API_KEY not set")
+            return ""
+        from langchain_anthropic import ChatAnthropic
+        from langchain_core.messages import HumanMessage, SystemMessage
+
+        system = (
+            "You are a research assistant. Summarise the following web content "
+            "focusing on what is relevant to NZ primary care and GP practice. "
+            "Be factual. Do not invent details not present in the content."
+        )
+        user_content = f"Prompt: {prompt}\n\nFetched content:\n\n" + "\n\n".join(
+            collected
+        )
+        kwargs: dict[str, Any] = {
+            "model": "claude-3-5-haiku-20241022",
+            "api_key": api_key,
+        }
+        base_url = os.getenv("ANTHROPIC_BASE_URL")
+        if base_url:
+            kwargs["base_url"] = base_url
+        model = ChatAnthropic(**kwargs)
+        messages = [
+            SystemMessage(content=system),
+            HumanMessage(content=user_content),
+        ]
+        response = model.invoke(messages)
+        text = getattr(response, "content", "") or str(response)
+        return (text or "").strip()
+    except Exception as e:
+        logger.warning("research_with_agent failed: {}", _safe_exc_str(e))
+        return ""

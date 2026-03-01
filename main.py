@@ -74,6 +74,32 @@ def main() -> None:
                 val = interrupt_value[0]
         else:
             val = interrupt_value
+        # Write outputs on first interrupt so aborting at review still leaves folder populated (for test suite Phase 7)
+        out_dir = output_dir_for_topic(raw_input)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        (out_dir / "research.md").write_text(
+            result.get("research_summary") or "", encoding="utf-8"
+        )
+        (out_dir / "plan.md").write_text(result.get("plan") or "", encoding="utf-8")
+        (out_dir / "draft_final.md").write_text(
+            result.get("post_draft") or "", encoding="utf-8"
+        )
+        (out_dir / "engagement.json").write_text(
+            json.dumps(
+                {
+                    "scout_targets": result.get("scout_targets", []),
+                    "comments_list": result.get("comments_list", []),
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        state_for_save = {
+            k: v for k, v in result.items() if k not in ("logs", "__interrupt__")
+        }
+        (out_dir / "session_state.json").write_text(
+            json.dumps(state_for_save, indent=2, default=str), encoding="utf-8"
+        )
         logger.info("Review required:\n{}", val)
         user_input = input(
             "Type APPROVE to proceed, or paste edits (post_draft / comments_list / first_comment): "

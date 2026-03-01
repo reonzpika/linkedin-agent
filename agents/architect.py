@@ -50,12 +50,16 @@ Algorithm: {algo[:1500]}
 
 Hashtag library (pick 3-4): {hashtag_lib[:1500]}
 
+First comment and engagement bait: first_comment must NOT end with or contain engagement-bait questions (e.g. "what do you think?", "what's your experience?", "share your experience", "how's your experience?"). End with a substantive point or a link placeholder only. The algorithm penalises engagement bait.
+
+Medtech/ALEX framing: When the topic involves Medtech or ALEX Intelligence Layer, describe it accurately. ALEX is an API/integration platform for third-party builders, not a clinical consultation UI. Do NOT describe ALEX as "crashing" during consultations. Acknowledge Medtech's progress (e.g. provider inbox API) before naming any remaining workflow gaps.
+
 Output format (use exactly this):
 <SOLUTION>
 post_draft:
 [150-300 words. Structure: Hook (1-2 sentences, specific clinical observation) then systemic point (1-2 paragraphs) then insider take (1 paragraph, conclusion not question). No links in body. No banned terms.]
 first_comment:
-[Placeholder for outbound URL or short first comment; links go here only]
+[Placeholder for outbound URL or short first comment; links go here only. No engagement-bait questions.]
 hashtags:
 [3-4 hashtags, one per line]
 </SOLUTION>"""

@@ -5,8 +5,7 @@ langchain-core>=0.3.0
 
 # Search and web fetching
 tavily-python>=0.5.0
-# Firecrawl: official SDK package name is firecrawl-py (see docs.firecrawl.dev/sdks/python)
-firecrawl-py>=1.0.0
+crawl4ai
 
 # Browser automation
 playwright>=1.49.0

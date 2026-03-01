@@ -35,11 +35,36 @@ def run(state: LinkedInContext) -> dict:
         "thrilled",
         "leveraging",
     ]
+    engagement_bait_phrases = [
+        "what do you think",
+        "what's your experience",
+        "what’s your experience",
+        "share your experience",
+        "how's your experience",
+        "your experience?",
+        "your thoughts?",
+        "let me know what you think",
+        "curious what you think",
+        "would love to hear your thoughts",
+    ]
     word_count = len(post_draft.split())
     link_in_body = "http" in post_draft or "www." in post_draft
     hashtag_ok = 3 <= len(hashtags) <= 4
     ends_question = post_draft.strip().endswith("?")
     banned_found = [b for b in banned if b.lower() in post_draft.lower()]
+
+    def has_engagement_bait(text: str) -> list[str]:
+        t = (text or "").lower()
+        return [p for p in engagement_bait_phrases if p.lower() in t]
+
+    first_comment = state.get("first_comment") or ""
+    comments_list = state.get("comments_list") or []
+    bait_in_first = has_engagement_bait(first_comment)
+    bait_in_comments = []
+    for i, c in enumerate(comments_list):
+        found = has_engagement_bait(c)
+        if found:
+            bait_in_comments.append(f"comment {i+1}: {found}")
 
     failures = []
     if word_count < 150 or word_count > 300:
@@ -54,6 +79,10 @@ def run(state: LinkedInContext) -> dict:
         failures.append(f"Banned terms: {banned_found}")
     if ends_question:
         failures.append("Post ends with a question (must end with a take/conclusion)")
+    if bait_in_first:
+        failures.append(f"Engagement bait in first_comment: {bait_in_first}")
+    if bait_in_comments:
+        failures.append("Engagement bait in comments_list: " + "; ".join(bait_in_comments))
 
     if not failures:
         return {"strategist_approved": True}
