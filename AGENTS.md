@@ -10,7 +10,7 @@
 
 This is an autonomous LinkedIn content engine for Dr Ryo Eguchi, a practising Auckland GP and solo founder of ClinicPro. It researches NZ primary care topics, scouts LinkedIn engagement targets, drafts posts in Dr Ryo's "Insider GP" voice, and executes the Golden Hour posting protocol via Playwright.
 
-The system is designed for 99% autonomy. The only required human interaction is a single consolidated review of the post and comments before execution. Everything else — research, discovery, drafting, critique, reflection, and self-improvement — runs without interruption.
+The system is **chat-first**: the only user interface is Cursor chat. The linkedin-post-create skill prompts for topic/URL, runs scripts (plan, research, scout, draft), and presents each output in chat for approval or edit before proceeding. The only required human interaction is approval (or edit) at each step; execution is scheduled after draft approval.
 
 **You are not just a code assistant. You are the autonomous operator of this system.** Read every file in `/knowledge/` before acting. Improve the system every time feedback is received.
 
@@ -23,13 +23,14 @@ This repo follows the WAT Framework. Before creating any new file, check whether
 | Layer | Directory / File | Purpose |
 |---|---|---|
 | Workflows | `/knowledge/` | Markdown SOPs, strategy, voice rules, NZ health context |
-| Agents | `/agents/` | Individual agent node logic |
-| Tools | `/tools/` | Single-purpose Python scripts (browser, search, Crawl4AI) |
-| Graph | `/graph/` | LangGraph orchestration, state schema, persistence |
-| Outputs | `/outputs/` | Per-session records, never committed to git |
+| Agents | `/agents/` | Agent logic (researcher, scout, architect, strategist); called by scripts with state dicts |
+| Tools | `/tools/` | Browser, search, Crawl4AI, executor (Golden Hour posting) |
+| Scripts | `/scripts/` | plan_from_url, research, scout, pick_targets, draft, assemble_session_state; run from chat skill |
+| Outputs | `/outputs/` | Per-session folders (session folder contract above); never committed to git |
 | Auth | `/auth/` | LinkedIn session files, never committed to git |
-| Config | `requirements.txt` | Full dependency list — check before adding any new package |
-| Temporary | `/temporary/` | Review/approval markers and pending queue for chat orchestration (see below) |
+| Config | `config/model_config.json` | Model per agent (planner, researcher, architect, etc.); `requirements.txt` for packages |
+| Temporary | `/temporary/` | approved.json, pending_posts.json for scheduling |
+| Graph | `/graph/` | **Deprecated.** Legacy LangGraph; chat-first flow uses scripts and session folder |
 
 **Rules:**
 - Always check `/tools/` before writing a new utility script
@@ -39,90 +40,88 @@ This repo follows the WAT Framework. Before creating any new file, check whether
 
 ---
 
+## Session folder (chat-first flow)
+
+Per-run handoff lives under `outputs/<session_id>/` (session_id = `YYYY-MM-DD_<slug>`). Scripts read and write these files; the skill orchestrates in chat.
+
+| File | Written by | Purpose / shape |
+|------|------------|-----------------|
+| `input.json` | Skill (from chat) | `topic`, `url` (optional), `pillar_preference`, `angle`, `created_at` |
+| `plan.json` | `scripts/plan_from_url.py` then user edit in chat | `plan` (text), `pillar`, `angle`, `summary_from_url` (if URL given) |
+| `research.md` | `scripts/research.py` | Research summary (markdown) |
+| `research_meta.json` | `scripts/research.py` | `target_urls`, `pillar` |
+| `engagement.json` | `scripts/scout.py` (targets), optionally `scripts/pick_targets.py` (reduce to 6), then `scripts/draft.py` (comments) | `scout_targets`, `comments_list` |
+| `draft_final.md` | `scripts/draft.py` | Post body only |
+| `draft_meta.json` | `scripts/draft.py` | `first_comment`, `hashtags` |
+| `session_state.json` | Assembly step (skill or `scripts/assemble_session_state.py`) | Dict for executor: `scout_targets`, `comments_list`, `post_draft`, `first_comment` |
+
+Before execution, assembly builds `session_state.json` from the other session files so `execute_post.py` can read one file and run the Golden Hour protocol.
+
+---
+
 ## Chat-Based Orchestration
 
-The system supports Cursor IDE orchestration via chat. Two entry points exist:
+**Chat is the only interface.** Do not run any script until the user has provided at least topic or URL. The skill must prompt for basic info (topic, URL, optional pillar and angle), create the session folder, and write `input.json` before running `scripts/plan_from_url.py`. Run the full post-creation flow via the linkedin-post-create skill **in Agent mode** so that plan and draft approval gates are respected.
 
-- **`main.py`**: Full graph with human_review interrupt; run interactively (review in terminal, resume with APPROVE or edits).
-- **`prepare_post.py`**: Runs planner through strategist then exits. Writes outputs and a marker to `temporary/review_ready.json`. No pause; Cursor (or a skill) reads the marker and runs the review loop in chat. Execution is then scheduled via OS task calling `execute_post.py [session_id]`.
+**Entry points:**
 
-**2-script design:**
+- **linkedin-post-create** (skill): Only way to start a new post. Prompts for topic/URL and optional pillar/angle; creates session folder and `input.json`; runs `scripts/plan_from_url.py` → present plan in chat → after approval, runs `scripts/research.py` → present research → runs `scripts/scout.py` then, if more than 6 targets, `scripts/pick_targets.py` then `scripts/draft.py` → present draft in chat → after approval, runs `scripts/assemble_session_state.py` then schedules via `tools/scheduler.schedule_execution`. Session state is written so `execute_post.py` can run later.
+- **execute_post.py**: Loads `outputs/[session_id]/session_state.json`, runs Golden Hour via `tools/executor.executor_run`. Called by OS scheduler or manually (linkedin-post-execute skill).
+- **main.py** / **prepare_post.py**: Deprecated. Use the skill and scripts instead.
 
-- **`prepare_post.py`**: Research, scout, draft, strategist (with revision loop). Saves to `outputs/[session_id]/` and writes `temporary/review_ready.json`. Used when orchestration is chat-driven.
-- **`execute_post.py`**: Loads `outputs/[session_id]/session_state.json`, runs Golden Hour comments then main post (via `graph.workflow.executor_run`). Called by OS scheduler or manually.
+**Scripts** (run from repo root with `--session-dir outputs/<session_id>`):
 
-**`temporary/` folder contracts:**
-
-- `temporary/review_ready.json`: Written by `prepare_post.py` when draft is ready. Signals Cursor/skill to show review.
-- `temporary/approved.json`: Written by the skill after user approves; holds session_id and scheduled time.
-- `temporary/pending_posts.json`: Queue of scheduled sessions; updated when a post is executed or cancelled.
+- `scripts/plan_from_url.py`: Reads input.json, optionally fetches URL; Claude (planner) produces plan.json.
+- `scripts/research.py`: Reads input + plan; runs Researcher agent; writes research.md, research_meta.json. On dehallucination, writes research_dehallucination.txt and exits non-zero.
+- `scripts/scout.py`: Runs Scout agent; writes engagement.json (scout_targets only, up to 30).
+- `scripts/pick_targets.py`: When scout_targets > 6, runs Picker (Claude) to choose best 6; overwrites scout_targets in engagement.json. Run after scout, before draft.
+- `scripts/draft.py`: Runs Architect then Strategist; writes draft_final.md, draft_meta.json, updates engagement.json with comments_list. Optional `--revision-feedback` for regenerate pass.
+- `scripts/assemble_session_state.py`: Builds session_state.json from session files for execute_post.py.
 
 **Cursor skills** (in `.cursor/skills/`):
 
-- **linkedin-post-create**: Trigger "create linkedin post", "draft post about". Pre-flight, run `prepare_post.py`, review loop in chat, schedule via `tools/scheduler.schedule_execution`, write approved/pending markers.
-- **linkedin-post-execute**: Trigger manual "execute [session_id]" or invoked by OS scheduler. Runs `execute_post.py`, reports results.
-- **linkedin-agent-improve**: Trigger feedback on voice, structure, or facts. Maps to knowledge file, derives rule, updates file (Self-Improvement Protocol).
+- **linkedin-post-create**: Trigger "create linkedin post", "draft post about". Orchestrates prompt → plan → research → scout → draft → review in chat → assemble → schedule. See skill file for phases.
+- **linkedin-post-execute**: Manual "execute [session_id]" or invoked by scheduler. Runs `execute_post.py`, reports results. Requires session_state.json (assembled by linkedin-post-create).
+- **linkedin-agent-improve**: Feedback on voice, structure, or facts. Maps to knowledge file, derives rule, updates file (Self-Improvement Protocol).
 
-**Agent roles (current):**
+**Agent roles** (called by scripts with state dicts):
 
-- **Scout**: Discovers 6 Golden Hour targets via personal feed scraping (primary) and hashtag scraping (fallback). Does not draft comments; returns `scout_targets` only. Uses `tools/browser.scrape_personal_feed` and `scrape_hashtag_posts`.
-- **Architect**: Drafts main post, first_comment, 3–4 hashtags, and exactly 6 Golden Hour comments (one per scout target). Uses target snippets to tailor comments; comment order matches target order.
+- **Scout**: Discovers 6 Golden Hour targets (personal feed + hashtag fallback). Returns scout_targets only. Uses `tools/browser.scrape_personal_feed` and `scrape_hashtag_posts`.
+- **Architect**: Drafts post_draft, first_comment, hashtags, 6 comments. Uses voice_profile, algorithm_sop, hashtag_library; accepts optional revision_feedback in state.
 
 ---
 
 ## Human Interaction Model
 
-The human (Dr Ryo) interacts with this system only through chat. The system must be designed around this constraint at every level.
+The human (Dr Ryo) interacts with this system only through chat. Every script output (plan, research, draft) is presented in chat for approval or edit before the next step runs.
 
-### The only mandatory interrupt point
+### Approval gates (in chat)
 
-After the Strategist agent approves the draft post and comments, call `interrupt()` and present the following for review in a single consolidated block:
+- **Plan**: After `plan_from_url.py`, present plan; user approves or edits plan.json. Do not run research until approved.
+- **Research**: After `research.py`, present research summary; user may approve or skip to scout/draft.
+- **Draft**: After `draft.py`, present post + hashtags + first comment + 6 Golden Hour comments; user approves, requests edits (skill updates files and shows diff), or asks to "Regenerate" (skill re-runs draft with `--revision-feedback`).
+- **Scheduling**: After draft approval, skill runs assemble then schedule; user sees confirmation.
 
-```
-REVIEW REQUIRED
+### Autonomous (no approval required)
 
-POST DRAFT:
-[full post text]
+- Running scripts when the user has approved the previous step
+- Playwright selector fixes in `tools/browser.py` (announce in chat)
+- Updating `/knowledge/` files from feedback (announce in chat first; see Self-Improvement Protocol)
+- Writing to `/outputs/` and `temporary/`
 
-HASHTAGS: [list]
-FIRST COMMENT: [URL or placeholder]
+### Require explicit approval
 
-PRE-ENGAGEMENT COMMENTS (Golden Hour):
-1. [target name + post URL + comment text]
-2. ...
-6. ...
-
-Type APPROVE to proceed, or paste your corrections below.
-```
-
-Do not interrupt at any other point unless a failure condition is met (see Failure Protocol below).
-
-### Autonomous decision-making
-
-The following actions require no human approval:
-
-- All research, web search, and NZ health context grounding
-- LinkedIn discovery and target selection
-- Post drafting and Strategist critique loops
-- Playwright selector fixes when LinkedIn UI changes
-- Writing to `/outputs/` after a completed run
-- Updating `/knowledge/` files (with a one-line chat announcement — see Self-Improvement Protocol)
-- Appending to `graph/state.py` logs via the `operator.add` reducer
-
-### Actions that require human approval before proceeding
-
-- Any change to core strategic positioning in `clinicpro_strategy.md`
-- Any change to the agent squad roles or the LangGraph DAG structure
+- Changes to core strategic positioning in `clinicpro_strategy.md`
 - Installing new Python packages
-- Modifying `.env.example` to add new credentials
-- Any git push or commit
+- Modifying `.env.example` or new credentials
+- Git commit or push
 
 ### Never do without explicit instruction
 
-- Post to LinkedIn outside the executor node
-- Log in to LinkedIn using credentials if a valid session file exists
-- Delete any file in `/outputs/` or `/auth/`
-- Expose or log API keys or LinkedIn credentials anywhere
+- Post to LinkedIn outside `tools/executor.executor_run` (called by execute_post.py after approval)
+- Log in to LinkedIn if a valid session file exists
+- Delete files in `/outputs/` or `/auth/`
+- Expose or log API keys or credentials
 - Mention Inbox AI features, ClinicPro R&D roadmap, or funded development timelines in any draft
 
 ---
@@ -175,15 +174,11 @@ If the proposed rule change would alter Dr Ryo's public positioning, contradict 
 
 ---
 
-## Shared State Is the Single Source of Truth
+## Shared State and Session Folder
 
-`graph/state.py` defines the `LinkedInContext` TypedDict. This is the canonical data contract for the entire system.
+**Session folder** (`outputs/<session_id>/`) is the handoff between steps. Scripts read and write the files listed in the Session folder table above. No script should invent new files without documenting them in AGENTS.md.
 
-**Rules:**
-- No agent may invent its own variables outside the state schema
-- No agent may read data from another agent's output directly — all data flows through state
-- The `logs` field uses `operator.add` as its reducer and is append-only — never overwrite it
-- If a new field is genuinely needed, add it to `LinkedInContext` first, then reference it in the agent
+**Agents** (researcher, scout, architect, strategist) receive a state dict built from session files (and optional keys like revision_feedback). They return updates that the calling script merges and writes back to the session folder. For type reference, `graph/state.py` still defines `LinkedInContext`; agents may use it for type hints. No agent should invent state keys that are not written to or read from the session folder (or passed explicitly by the script).
 
 ---
 
@@ -207,18 +202,11 @@ If the proposed rule change would alter Dr Ryo's public positioning, contradict 
 
 ---
 
-## Initialisation Protocol (Every Run)
+## Initialisation (When Starting a New Post)
 
-Before every workflow run, the entry node must output this exact phrase:
+Before running any script, the skill must prompt the user for basic info (topic and/or URL, optional pillar and angle) and write `input.json` in the session folder. Scripts assume the session folder and required files exist as per the Session folder table.
 
-> "Let's first understand the problem, extract relevant variables and their corresponding numerals, and make a plan."
-
-Then read the following files before any agent acts:
-1. `knowledge/voice_profile.md`
-2. `knowledge/algorithm_sop.md`
-3. `knowledge/nz_health_context.md`
-4. `knowledge/dehallucination_triggers.md`
-5. The most recent session folder in `/outputs/` (to check historical engagement targets)
+Agents (when invoked by scripts) read from `knowledge/` as needed: voice_profile, algorithm_sop, nz_health_context, dehallucination_triggers, clinicpro_strategy, hashtag_library. Scout reads existing `engagement.json` files under `outputs/` to avoid repeating targets.
 
 ---
 
@@ -234,11 +222,7 @@ Then read the following files before any agent acts:
 
 ## Observability (LangSmith)
 
-LangSmith is an optional but recommended observability layer. When `LANGSMITH_API_KEY` is present in the environment, the compiled LangGraph graph is wrapped with LangSmith tracing. This gives a full trace of every node execution, every LLM call, and every tool invocation — which is how you debug why a Strategist loop failed twice or why the Researcher picked the wrong pillar.
-
-If `LANGSMITH_API_KEY` is absent, the system runs without tracing. No warning, no crash.
-
-Use LangSmith traces to inform self-improvement decisions. If a trace reveals a consistent failure pattern (e.g., the Researcher consistently misidentifies Pillar 3 topics as Pillar 1), derive a rule from that pattern and apply the Self-Improvement Protocol.
+Optional. When `LANGSMITH_API_KEY` is set, LangSmith can trace LLM calls if the scripts or agents are instrumented. If absent, the system runs without tracing. Use traces to debug script/agent behaviour and apply the Self-Improvement Protocol when patterns emerge.
 
 ---
 
@@ -252,35 +236,20 @@ LinkedIn's UI is dynamic. Element references change between sessions, modals app
 - Never hardcode CSS selectors — always use semantic queries or accessibility tree lookups so the automation adapts when LinkedIn updates its UI
 - Always re-capture a page snapshot before interacting with any element — never use stale references from a previous step
 - Verify each action succeeded before moving to the next one
-- When a selector fails, attempt one autonomous fix: query the accessibility tree for the correct current element, update the selector in `browser.py`, log the change to `state["logs"]`, and announce in chat:
-  > "LinkedIn UI change detected. Updated selector for [action name]. Logged to browser.py."
-- If the fix fails after one attempt, set `error_state` and call `interrupt()` for human takeover
-- Never crash silently
+- When a selector fails, attempt one autonomous fix: update the selector in `browser.py` and announce in chat: "LinkedIn UI change detected. Updated selector for [action name]."
+- If the fix fails after one attempt, report the error in chat and stop; do not crash silently
 
 ### Dehallucination triggers
 
-If a sensitive topic is detected during research or drafting:
-1. Log the trigger name and timestamp to `state["logs"]`
-2. Call `interrupt()` immediately with the specific clarification question from `dehallucination_triggers.md`
-3. Do not proceed with drafting until the human responds
-4. After the human responds, log their answer and resume
-5. If the trigger fires repeatedly for the same topic, update `dehallucination_triggers.md` with the confirmed correct information so future runs do not need to ask again
+When `scripts/research.py` detects a sensitive topic, it writes the clarification question to `research_dehallucination.txt` and exits non-zero. The skill must show the question in chat and wait for the user's answer before re-running research (or proceeding with the answer recorded).
+
+**When research.py exits with dehallucination:** The skill shows the contents of `research_dehallucination.txt` in chat. The user provides the answer in chat. The agent writes that answer to `research_dehallucination_answer.txt` in the session folder and re-runs `scripts/research.py --session-dir <path>`. No code change is required; the script and researcher already support reading the answer file.
+
+If the same trigger recurs, update `dehallucination_triggers.md` with the confirmed correct information.
 
 ### Strategist revision loops
 
-If the Strategist rejects a draft twice and the third revision still fails:
-1. Do not loop again
-2. Pass the draft to the human review interrupt with a clear note explaining which guardrail keeps failing
-3. Let Dr Ryo decide whether to override or restart
-
-### Redis checkpoint failures
-
-**Production requires Redis.** The real system must not silently run without it. Interrupt/resume and Time Travel Debugging depend on the checkpointer. When Redis is unavailable at startup (e.g. local test without Redis running), the graph may compile without a checkpointer so the test suite can run; that fallback is for testing only.
-
-If Redis is unavailable at startup:
-1. Warn in chat: "Redis unavailable. Running without persistence. Time Travel Debugging disabled for this session."
-2. Proceed with the run using in-memory state only
-3. Save the final session state to `/outputs/[session-folder]/session_state.json` as a manual backup
+`scripts/draft.py` runs Architect then Strategist with up to two revision loops. If the draft still fails guardrails, the script still writes the latest draft to the session folder; the skill presents it in chat with a note so Dr Ryo can override or request "Regenerate" with feedback.
 
 ---
 
@@ -298,21 +267,12 @@ Before a live LinkedIn run, run the full test suite so output quality is checked
 
 ## Output Folder Convention
 
-Every completed run saves to:
-
-```
-outputs/YYYY-MM-DD_[topic-slug]/
-├── research.md         # Researcher agent output
-├── plan.md             # PS+ plan from entry node
-├── draft_final.md      # Approved post after human review
-├── engagement.json     # Scout targets and Golden Hour comments
-└── session_state.json  # Full LangGraph state snapshot
-```
+Session folder layout is defined in the **Session folder (chat-first flow)** table above. Key files: input.json, plan.json, research.md, research_meta.json, engagement.json, draft_final.md, draft_meta.json, session_state.json (after assembly).
 
 **Rules:**
-- Topic slug must be lowercase, hyphenated, max 30 characters (e.g. `medtech-alex-update`, `admin-burden-workforce`)
-- Never overwrite an existing session folder — create a new one with an incremented suffix if needed (e.g. `2026-02-27_medtech-alex-2`)
-- The Scout agent reads all existing `engagement.json` files (post_url from scout_targets) to avoid repeating the same posts. Scout uses personal feed and hashtag scraping (see `tools/browser.py`), not search API
+- Session id = `YYYY-MM-DD_<slug>`; slug lowercase, hyphenated, max 30 characters. Collision: use suffix -2, -3, etc.
+- Never overwrite an existing session folder; create a new one with an incremented suffix if needed
+- Scout reads all existing `engagement.json` files (post_url from scout_targets) to avoid repeating the same posts
 
 ---
 
@@ -340,13 +300,11 @@ All content generated by this system must use New Zealand English spelling and c
 ## Code Style and Conventions
 
 - Python 3.11+
-- All agent files must import `LinkedInContext` from `graph/state.py` — no local state definitions
-- All tool functions must have a docstring explaining inputs, outputs, and failure behaviour
-- Use `python-dotenv` to load `.env` — never hardcode credentials
-- Type hints required on all function signatures
-- Use `loguru` for logging (not `print`) so logs flow cleanly into the LangGraph state
-- Format all Python files with `black` before finishing any task
-- Run `mypy` on modified files before finishing any task
+- Agent files may import `LinkedInContext` from `graph/state.py` for type hints; scripts pass plain dicts
+- All tool and script entry points must have docstrings (inputs, outputs, failure behaviour)
+- Use `python-dotenv` to load `.env`; never hardcode credentials
+- Type hints required on function signatures
+- Format Python with `black`; run `mypy` on modified files before finishing
 
 ---
 
@@ -360,9 +318,9 @@ All content generated by this system must use New Zealand English spelling and c
 | Fix Playwright selectors autonomously | Permitted — announce in chat first |
 | Run `black` and `mypy` | Always permitted |
 | Update core strategic positioning | Permitted — announce in chat first |
-| Change LangGraph DAG structure | Permitted — announce in chat first |
+| Change script or skill orchestration | Permitted — announce in chat first |
 | Install new Python packages | Always permitted |
-| Post to LinkedIn | Only via executor node after human review interrupt |
+| Post to LinkedIn | Only via execute_post.py (tools/executor.executor_run) after draft approved in chat |
 | Commit or push to git | Permitted — announce in chat first |
 | Delete files | Permitted — announce in chat first |
 | Log or expose credentials | Never |

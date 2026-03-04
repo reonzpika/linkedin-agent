@@ -1,6 +1,6 @@
 """
-LinkedIn Engine entry point.
-Load env, compile graph, run workflow. On interrupt: show draft, accept edits, resume. Save outputs with collision-safe folder names.
+DEPRECATED: Use chat and the linkedin-post-create skill instead. This entry point is kept for reference or local testing only.
+LinkedIn Engine entry point (legacy). Load env, compile graph, run workflow. On interrupt: show draft, accept edits, resume. Save outputs with collision-safe folder names.
 """
 
 import json

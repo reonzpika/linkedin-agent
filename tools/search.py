@@ -222,7 +222,7 @@ def research_with_agent(prompt: str) -> str:
             collected
         )
         kwargs: dict[str, Any] = {
-            "model": "claude-3-5-haiku-20241022",
+            "model": "claude-haiku-4-5-20251001",
             "api_key": api_key,
         }
         base_url = os.getenv("ANTHROPIC_BASE_URL")

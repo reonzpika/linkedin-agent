@@ -1,7 +1,7 @@
 """
-LinkedIn Engine test suite: Phases 1-5, 6.1, 7, 8.
+LinkedIn Engine test suite: Phases 1-5, 5b, 4b (scripts), 6.1 (legacy graph), 7, 8.
 Run from repo root: python scripts/run_tests.py
-Phase 6.2 (dry run to interrupt) is manual: run python main.py "Medtech ALEX" and abort at review.
+Chat-first flow uses scripts and session folder; Phase 7 passes if any session folder has plan.json and research.md (or legacy plan.md).
 """
 
 import os
@@ -64,6 +64,7 @@ def phase1_imports():
         from agents.scout import run as scout_run
         from agents.architect import run as architect_run
         from agents.strategist import run as strategist_run
+        from tools.executor import executor_run
 
         print("All imports OK")
         return True
@@ -306,24 +307,74 @@ def phase5b_quality():
         return False
 
 
+def phase4b_scripts():
+    print("\n=== Phase 4b: Scripts with fixture session ===")
+    if not os.getenv("ANTHROPIC_API_KEY") or not os.getenv("TAVILY_API_KEY"):
+        print("Skip: ANTHROPIC_API_KEY or TAVILY_API_KEY not set.")
+        RESULTS.append(("4b", "Scripts (plan, research)", "SKIP"))
+        return "skip"
+    import subprocess
+    fixture = ROOT / "outputs" / "test_fixture_session"
+    fixture.mkdir(parents=True, exist_ok=True)
+    (fixture / "input.json").write_text(
+        '{"topic": "Medtech ALEX", "created_at": "2026-03-03T00:00:00Z"}',
+        encoding="utf-8",
+    )
+    try:
+        r1 = subprocess.run(
+            [sys.executable, str(ROOT / "scripts" / "plan_from_url.py"), "--session-dir", str(fixture)],
+            cwd=str(ROOT),
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        if r1.returncode != 0:
+            print("plan_from_url.py failed:", r1.stderr or r1.stdout)
+            RESULTS.append(("4b", "Scripts (plan, research)", f"FAIL: plan {r1.returncode}"))
+            return False
+        if not (fixture / "plan.json").exists():
+            RESULTS.append(("4b", "Scripts (plan, research)", "FAIL: plan.json not written"))
+            return False
+        r2 = subprocess.run(
+            [sys.executable, str(ROOT / "scripts" / "research.py"), "--session-dir", str(fixture)],
+            cwd=str(ROOT),
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+        if r2.returncode != 0 and r2.returncode != 2:
+            print("research.py failed:", r2.stderr or r2.stdout)
+            RESULTS.append(("4b", "Scripts (plan, research)", f"FAIL: research {r2.returncode}"))
+            return False
+        if r2.returncode == 2:
+            print("Research: dehallucination (exit 2); script behaviour OK.")
+        elif not (fixture / "research.md").exists() or not (fixture / "research_meta.json").exists():
+            RESULTS.append(("4b", "Scripts (plan, research)", "FAIL: research.md or research_meta.json missing"))
+            return False
+        else:
+            print("research.md and research_meta.json present.")
+        RESULTS.append(("4b", "Scripts (plan, research)", "PASS"))
+        return True
+    except subprocess.TimeoutExpired:
+        RESULTS.append(("4b", "Scripts (plan, research)", "FAIL: timeout"))
+        return False
+    except Exception as e:
+        RESULTS.append(("4b", "Scripts (plan, research)", f"FAIL: {e}"))
+        return False
+
+
 def phase6_graph():
-    print("\n=== Phase 6.1: Graph compiles ===")
+    print("\n=== Phase 6.1: Graph (legacy) compiles ===")
     try:
         from graph.workflow import get_compiled_graph
 
         g = get_compiled_graph()
-        print("Graph compiled:", type(g).__name__)
-        if hasattr(g, "nodes"):
-            print("Nodes:", list(g.nodes.keys()))
-        else:
-            print(
-                "Nodes: (check workflow.py: planner, researcher, scout, architect, strategist, human_review, executor)"
-            )
-        RESULTS.append(("6", "Graph and interrupt", "PASS"))
+        print("Graph compiled (legacy):", type(g).__name__)
+        RESULTS.append(("6", "Graph legacy", "PASS"))
         return True
     except Exception as e:
         print(f"Graph error: {e}")
-        RESULTS.append(("6", "Graph and interrupt", f"FAIL: {e}"))
+        RESULTS.append(("6", "Graph legacy", f"FAIL: {e}"))
         return False
 
 
@@ -331,25 +382,38 @@ def phase7_output():
     print("\n=== Phase 7: Output folder ===")
     import glob
 
-    folders = sorted(glob.glob(str(ROOT / "outputs" / "*medtech*")))
-    if not folders:
-        print(
-            "No output folder found (run main.py 'Medtech ALEX' to interrupt once, then re-run this)."
-        )
-        RESULTS.append(("7", "Output folder", "FAIL: no output folder"))
+    out_root = ROOT / "outputs"
+    if not out_root.exists():
+        RESULTS.append(("7", "Output folder", "FAIL: no outputs/"))
         return False
-    folder = Path(folders[-1])
+    folders = sorted(out_root.iterdir(), key=lambda p: p.stat().st_mtime if p.is_dir() else 0, reverse=True)
+    folder = None
+    for f in folders:
+        if not f.is_dir():
+            continue
+        if (f / "research.md").exists() and ((f / "plan.json").exists() or (f / "plan.md").exists()):
+            folder = f
+            break
+    if not folder:
+        print("No session folder with research.md and plan.json (or plan.md) found. Run the linkedin-post-create skill or scripts to create one.")
+        RESULTS.append(("7", "Output folder", "FAIL: no session folder"))
+        return False
     print("Output folder:", folder)
-    for f in ["research.md", "plan.md", "engagement.json"]:
-        path = folder / f
+    for name in ["research.md", "plan.json", "engagement.json"]:
+        if name == "plan.json" and not (folder / name).exists():
+            name = "plan.md"
+        path = folder / name
         exists = path.exists()
         size = path.stat().st_size if exists else 0
         status = "OK" if exists and size > 0 else "MISSING or EMPTY"
-        print(f"  {f}: {status}")
-    ok = all(
-        (folder / f).exists() and (folder / f).stat().st_size > 0
-        for f in ["research.md", "plan.md", "engagement.json"]
-    )
+        print(f"  {name}: {status}")
+    ok = (folder / "research.md").exists() and (folder / "research.md").stat().st_size > 0
+    if (folder / "plan.json").exists():
+        ok = ok and (folder / "plan.json").stat().st_size > 0
+    elif (folder / "plan.md").exists():
+        ok = ok and (folder / "plan.md").stat().st_size > 0
+    else:
+        ok = False
     RESULTS.append(("7", "Output folder", "PASS" if ok else "FAIL"))
     return ok
 
@@ -382,10 +446,8 @@ def phase8_browser():
 
 
 def main():
-    print("LinkedIn Engine test suite (Phases 1-5, 6.1, 7, 8)")
-    print(
-        "Phase 6.2: run python main.py 'Medtech ALEX' and abort at review to verify interrupt."
-    )
+    print("LinkedIn Engine test suite (Phases 1-5, 5b, 4b, 6.1, 7, 8)")
+    print("Chat-first: use linkedin-post-create skill to create a session folder for Phase 7.")
 
     p1_env = phase1_env()
     p1_imports = phase1_imports()
@@ -398,6 +460,7 @@ def main():
     r2 = phase2_redis()
     phase3_knowledge()
     phase4_tools()
+    phase4b_scripts()
     phase5_agents()
     phase5b_quality()
     phase6_graph()

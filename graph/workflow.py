@@ -1,13 +1,15 @@
 """
-LangGraph DAG for the LinkedIn Engine.
-Planner -> Researcher -> Scout -> Architect -> Strategist -> Human review (interrupt) -> Executor.
+DEPRECATED: Chat-first flow uses scripts (plan_from_url, research, scout, draft) and tools/executor.py instead.
+LangGraph DAG for the LinkedIn Engine (legacy). Planner -> Researcher -> Scout -> Architect -> Strategist -> Human review (interrupt) -> Executor.
 """
 
+import asyncio
 import os
 from datetime import datetime
 from typing import Any
 
 from langgraph.graph import END, START, StateGraph
+from loguru import logger
 
 from graph.state import LinkedInContext
 
@@ -132,77 +134,31 @@ def human_review_node(state: LinkedInContext) -> dict:
     return {"human_approved": True, "logs": _log(state, "human_review: approved")}
 
 
-def executor_node(state: LinkedInContext) -> dict:
-    """Post Golden Hour comments then schedule main post. On Playwright failure set error_state and interrupt."""
-    from tools.browser import post_comment, schedule_post
-    from config.playwright_settings import get_browser_context
+async def executor_node(state: LinkedInContext) -> dict:
+    """Execute Golden Hour posting protocol (async-safe). Runs sync Playwright in a thread to avoid async conflict."""
 
-    logs = _log(state, "executor: starting")
-    try:
+    def _sync_execute() -> dict:
+        """Run sync Playwright in thread to avoid async conflict."""
+        from config.playwright_settings import get_browser_context
+
         context = get_browser_context()
+        try:
+            return executor_run(state, context)
+        finally:
+            context.close()
+
+    try:
+        result = await asyncio.to_thread(_sync_execute)
+        return {
+            **result,
+            "logs": _log(state, "executor: completed"),
+        }
     except Exception as e:
-        from langgraph.types import interrupt as _interrupt
-
-        _interrupt(
-            f"Executor failed (get_browser_context): {e}. Fix and resume or abandon."
-        )
+        logger.exception("Executor failed")
         return {
-            "error_state": str(e),
-            "logs": logs + _log(state, f"executor: get_browser_context failed: {e}"),
+            "logs": _log(state, f"Executor failed: {str(e)}"),
+            "execution_results": [],
         }
-    post_draft = state.get("post_draft") or ""
-    first_comment = state.get("first_comment") or ""
-    comments_list = state.get("comments_list") or []
-    scout_targets = state.get("scout_targets") or []
-    # Golden Hour: post 5-6 pre-engagement comments
-    for i, target in enumerate(scout_targets[:6]):
-        post_url = target.get("post_url") or target.get("url")
-        comment_text = comments_list[i] if i < len(comments_list) else ""
-        if post_url and comment_text:
-            r = post_comment(context, post_url, comment_text)
-            if not r.get("success"):
-                from langgraph.types import interrupt as _interrupt
-
-                _interrupt(
-                    f"Executor failed (post_comment): {r.get('error', 'post_comment failed')}. Fix and resume or abandon."
-                )
-                return {
-                    "error_state": r.get("error", "post_comment failed"),
-                    "logs": logs
-                    + _log(state, f"executor: comment failed: {r.get('error')}"),
-                }
-        logs = logs + _log(
-            state, f"executor: commented on {target.get('name', 'target')}"
-        )
-    # Schedule main post (e.g. next Tuesday 8am NZST); first_comment posted after go-live
-    from datetime import datetime, timedelta
-
-    n = datetime.utcnow()
-    # Next Tuesday 8am NZST (NZST = UTC+13)
-    days_ahead = (1 - n.weekday()) % 7
-    if (
-        days_ahead == 0 and n.hour >= 21
-    ):  # 8am NZST = 19:00 UTC (winter) or 20:00 (summer); approx
-        days_ahead = 7
-    scheduled = (n + timedelta(days=days_ahead)).replace(
-        hour=19, minute=0, second=0, microsecond=0
-    ).isoformat() + "Z"
-    r = schedule_post(context, post_draft, first_comment, scheduled)
-    if not r.get("success"):
-        from langgraph.types import interrupt as _interrupt
-
-        _interrupt(
-            f"Executor failed (schedule_post): {r.get('error', 'schedule_post failed')}. Fix and resume or abandon."
-        )
-        return {
-            "error_state": r.get("error", "schedule_post failed"),
-            "logs": logs
-            + _log(state, f"executor: schedule_post failed: {r.get('error')}"),
-        }
-    return {
-        "logs": logs
-        + _log(state, f"executor: completed; post_url={r.get('post_url', '')}")
-    }
 
 
 def _strategist_routing(state: LinkedInContext) -> str:

@@ -1,6 +1,6 @@
 """
-Shared state schema for the LinkedIn Engine.
-LinkedInContext is the single source of truth passed between all nodes.
+DEPRECATED: Chat-first flow uses session folder files and plain dicts; LinkedInContext kept for type reference and legacy agents.
+Shared state schema for the LinkedIn Engine (legacy). LinkedInContext is the single source of truth passed between all nodes.
 """
 
 from typing import Annotated, List, Optional, TypedDict

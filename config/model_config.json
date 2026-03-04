@@ -1,18 +1,26 @@
 {
+  "planner": {
+    "model": "claude-sonnet-4-6",
+    "reason": "URL and conversation analysis for execution plan"
+  },
   "researcher": {
-    "model": "claude-3-5-sonnet-20241022",
+    "model": "claude-sonnet-4-6",
     "reason": "High reasoning required for NZ health policy synthesis"
   },
   "scout": {
-    "model": "claude-3-5-haiku-20241022",
+    "model": "claude-haiku-4-5-20251001",
     "reason": "Lower-cost data processing for LinkedIn discovery tasks"
   },
   "architect": {
-    "model": "claude-3-5-sonnet-20241022",
+    "model": "claude-sonnet-4-6",
     "reason": "High-quality writing required for voice-accurate drafting"
   },
   "strategist": {
-    "model": "claude-3-5-sonnet-20241022",
+    "model": "claude-sonnet-4-6",
     "reason": "Reflection and critique require strongest reasoning capability"
+  },
+  "picker": {
+    "model": "claude-sonnet-4-6",
+    "reason": "Select best 6 targets from 30 for engagement; mix of audience relevance and commentability"
   }
 }

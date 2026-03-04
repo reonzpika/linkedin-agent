@@ -1,10 +1,6 @@
 """
-Redis-backed LangGraph checkpointer for session persistence.
-Snapshot state after every node completion; supports Time Travel Debugging via thread_id.
-
-Production: Redis is required. The system must not silently run without it in production.
-Testing: When Redis is unavailable, get_checkpointer() returns None so the graph can
-compile without a checkpointer for local/test runs. Callers must handle None.
+DEPRECATED: Chat-first flow uses session folder and scripts; no graph checkpointer.
+Redis-backed LangGraph checkpointer for session persistence (legacy). Snapshot state after every node completion; supports Time Travel Debugging via thread_id. Production: Redis required. When unavailable, get_checkpointer() returns None so the graph can compile without persistence.
 """
 
 import os

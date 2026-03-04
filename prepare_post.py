@@ -1,11 +1,11 @@
 """
-LinkedIn Post Preparation Script.
-Runs workflow (planner through strategist) then EXITS. Writes outputs and review marker for Cursor orchestration.
+DEPRECATED: Use chat and the linkedin-post-create skill with scripts (plan_from_url, research, scout, draft) instead.
+LinkedIn Post Preparation Script (legacy). Runs workflow (planner through strategist) then EXITS. Writes outputs and review marker for Cursor orchestration.
 """
 
 import json
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -27,7 +27,7 @@ def main() -> None:
     from main import output_dir_for_topic
     from graph.workflow import get_compiled_graph_prepare
 
-    thread_id = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+    thread_id = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     config = {"configurable": {"thread_id": thread_id}}
     graph = get_compiled_graph_prepare()
     initial = {"raw_input": topic, "logs": []}
@@ -70,7 +70,7 @@ def main() -> None:
         "session_id": output_dir.name,
         "output_dir": str(output_dir),
         "thread_id": thread_id,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }
     temp_dir = ROOT / "temporary"
     temp_dir.mkdir(parents=True, exist_ok=True)

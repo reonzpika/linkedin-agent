@@ -84,7 +84,7 @@ def run(state: LinkedInContext) -> dict:
     scout_targets: list[dict] = []
 
     try:
-        feed_posts = scrape_personal_feed(ctx, max_posts=20)
+        feed_posts = scrape_personal_feed(ctx, max_posts=30)
 
         filtered = _filter_spam_and_recruiters(feed_posts)
         filtered = [p for p in filtered if p.get("post_url") not in recent_urls]
@@ -99,9 +99,9 @@ def run(state: LinkedInContext) -> dict:
             if len(relevant) >= 3:
                 filtered = relevant
 
-        scout_targets = filtered[:6]
+        scout_targets = filtered[:30]
 
-        if len(scout_targets) < 6:
+        if len(scout_targets) < 30:
             hashtag_path = KNOWLEDGE / "hashtag_library.md"
             if hashtag_path.exists():
                 hashtag_text = hashtag_path.read_text(encoding="utf-8")
@@ -109,7 +109,7 @@ def run(state: LinkedInContext) -> dict:
 
                 if hashtags:
                     hashtag_posts = scrape_hashtag_posts(
-                        ctx, hashtags, max_posts=20
+                        ctx, hashtags, max_posts=30
                     )
                     filtered_hashtag = _filter_spam_and_recruiters(
                         hashtag_posts
@@ -119,13 +119,12 @@ def run(state: LinkedInContext) -> dict:
                         for p in filtered_hashtag
                         if p.get("post_url") not in recent_urls
                     ]
-
+                    seen = {t.get("post_url") for t in scout_targets}
                     for post in filtered_hashtag:
-                        if len(scout_targets) >= 6:
+                        if len(scout_targets) >= 30:
                             break
-                        if post.get("post_url") not in [
-                            t.get("post_url") for t in scout_targets
-                        ]:
+                        if post.get("post_url") not in seen:
+                            seen.add(post.get("post_url"))
                             scout_targets.append(post)
     finally:
         ctx.close()

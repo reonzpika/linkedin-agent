@@ -59,6 +59,8 @@ def run(state: LinkedInContext) -> dict:
 
     first_comment = state.get("first_comment") or ""
     comments_list = state.get("comments_list") or []
+    em_dash = "\u2014"
+    has_em_dash = em_dash in post_draft or em_dash in first_comment
     bait_in_first = has_engagement_bait(first_comment)
     bait_in_comments = []
     for i, c in enumerate(comments_list):
@@ -83,6 +85,10 @@ def run(state: LinkedInContext) -> dict:
         failures.append(f"Engagement bait in first_comment: {bait_in_first}")
     if bait_in_comments:
         failures.append("Engagement bait in comments_list: " + "; ".join(bait_in_comments))
+    if has_em_dash:
+        failures.append(
+            "Replace all em dashes (—) with a comma, semicolon, or full stop; never use em dashes in output."
+        )
 
     scout_targets = state.get("scout_targets") or []
     if scout_targets and len(comments_list) != len(scout_targets):

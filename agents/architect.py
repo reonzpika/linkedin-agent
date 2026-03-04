@@ -20,6 +20,7 @@ def run(state: LinkedInContext) -> dict:
     research_summary = state.get("research_summary") or ""
     pillar = state.get("pillar") or "pillar_1"
     scout_targets = state.get("scout_targets") or []
+    source_url = (state.get("source_url") or "").strip()
 
     voice_path = KNOWLEDGE / "voice_profile.md"
     algo_path = KNOWLEDGE / "algorithm_sop.md"
@@ -52,9 +53,9 @@ Hashtag library (pick 3-4): {hashtag_lib[:1500]}
 
 POST REQUIREMENTS: 150-300 words. Structure: Hook (specific clinical observation) then systemic point (1-2 paragraphs) then insider take (conclusion, not question). No links in body, no banned terms, end with conclusion.
 
-FIRST COMMENT REQUIREMENTS: Placeholder for outbound URL or short comment. Links go here only. NO engagement-bait questions.
+FIRST COMMENT REQUIREMENTS: When a source URL is provided in the user message, first_comment MUST be a short descriptor plus that exact URL (e.g. "Full source: [URL]"). Do not output "[URL to be added]" or any placeholder. When no URL is provided, use a short comment only. Links go in first_comment only; no links in post body. NO engagement-bait questions.
 
-GOLDEN HOUR COMMENTS (6 required): Draft exactly 6 comments for pre-engagement on other LinkedIn posts. Each: 2-3 sentences, substantive, reference specific point from target's post. Use target snippets below to tailor each comment. Must reinforce pillar positioning of your main post. NO generic praise, NO engagement-bait questions. Comment order MUST match target order: comment 1 for target 1, comment 2 for target 2, etc.
+GOLDEN HOUR COMMENTS (6 required): Draft exactly 6 comments for pre-engagement on other LinkedIn posts. Each comment MUST respond to or reference something specific in that target's post (use the snippet for that target). Do not write a generic take on our main post topic; write a reply that engages with what that person actually said. Each: 2-3 sentences, substantive. Comment order MUST match target order: comment 1 for target 1, comment 2 for target 2, etc. NO generic praise, NO engagement-bait questions.
 
 Medtech/ALEX framing: ALEX is API/integration platform, not clinical UI. Don't describe as "crashing". Acknowledge Medtech progress before naming gaps.
 
@@ -63,7 +64,7 @@ Output format (use exactly this):
 post_draft:
 [150-300 words]
 first_comment:
-[Placeholder or short comment; no engagement bait]
+[Short descriptor + source URL if provided; otherwise short comment. No engagement bait.]
 hashtags:
 [3-4 hashtags, one per line]
 </SOLUTION>
@@ -74,8 +75,13 @@ hashtags:
 
     user = f"""Topic: {raw_input}. Pillar: {pillar}. Research: {research_summary[:2000]}.
 
-Scout targets for Golden Hour engagement (draft tailored comments for each):
-{json.dumps([{"index": i + 1, "name": t.get("name", ""), "snippet": t.get("rationale", "")[:200]} for i, t in enumerate(scout_targets[:6])], indent=2)}"""
+Scout targets for Golden Hour engagement (draft a comment for each that references their post):
+{json.dumps([{"index": i + 1, "name": t.get("name", ""), "snippet": (t.get("snippet") or t.get("rationale") or "")[:300]} for i, t in enumerate(scout_targets[:6])], indent=2)}"""
+    if source_url:
+        user += f"\n\nSource URL for first comment (use this exact URL): {source_url}"
+    revision_feedback = (state.get("revision_feedback") or "").strip()
+    if revision_feedback:
+        user += f"\n\nRevision requested:\n{revision_feedback}"
     out = invoke("architect", system, user)
 
     post_draft = ""

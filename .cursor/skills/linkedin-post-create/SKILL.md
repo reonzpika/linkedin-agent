@@ -1,74 +1,87 @@
 ---
 name: linkedin-post-create
-description: Orchestrates LinkedIn post creation from topic to scheduled execution. Run prepare_post.py, show review in chat, handle approval or edits, then schedule via OS task.
+description: Chat-only LinkedIn post creation. Prompt for topic/URL, run plan script, show plan for approval, then research, scout, draft; review in chat; assemble and schedule.
 ---
 
 # LinkedIn Post Creation Skill
 
 **Trigger:** "create linkedin post", "draft post about", "write about [topic]"
 
-**Description:** Orchestrates the full post creation workflow: pre-flight questions, research, drafting, review loop, and scheduling.
+**Description:** Chat is the only interface. Prompt for basic info, run scripts (plan, research, scout, draft), present each output in chat for approval or edit, then assemble and schedule. Do not run any script until the user has provided required info.
+
+**How to run:** Start in **Agent mode**. Send topic and/or URL (e.g. "Create a linkedin post about [URL]"). The skill will present the plan and wait for your approval before running research. Do not use Plan mode to execute the full flow; that skips approval gates.
 
 ---
 
 ## Orchestration Protocol
 
-### Phase 1: Pre-flight (Plan mode)
+### Phase 1: Gather input and create session
 
-Ask 2–3 clarifying questions before running the workflow:
+1. **Prompt in chat** (do not run tools until you have at least topic or URL):
+   - "What topic or URL would you like to create a post about?"
+   - Optional: "Which content pillar? (1: Infrastructure, 2: Building in Public, 3: Policy/Admin, or auto-detect?)"
+   - Optional: "Any specific hook or angle you want highlighted?"
 
-1. **Pillar preference:** "Which content pillar does this fit? (1: Infrastructure, 2: Building in Public, 3: Policy/Admin, or auto-detect?)"
-2. **Specific angle:** "Any specific hook or observation you want highlighted?"
+2. **Create session folder** (from repo root):
+   - Use slug from topic (e.g. "Medtech ALEX" → `2026-03-03_medtech-alex`). Reuse logic from `main.py`: `output_dir_for_topic(topic)` or equivalent (YYYY-MM-DD_slug, collision suffix -2, -3 if exists).
+   - Ensure `outputs/` exists; create `outputs/<session_id>/`.
 
-If the user provides no topic, ask: "What topic would you like to create a post about?"
-
-Show execution plan:
+3. **Write `input.json`** in the session folder:
+```json
+{
+  "topic": "<user topic>",
+  "url": "<optional URL>",
+  "pillar_preference": "<optional 1|2|3|auto>",
+  "angle": "<optional user angle>",
+  "created_at": "<ISO timestamp>"
+}
 ```
-Plan: I'll research NZ primary care context, scout 6 Golden Hour targets from your feed, draft post + comments, and schedule for next Golden Hour (8am NZST tomorrow). Approve?
-```
 
-Wait for approval before proceeding.
+4. Proceed to Phase 2 (run plan script). Do not run research or any other script until the plan is approved.
 
 ---
 
-### Phase 2: Execute workflow
+### Phase 2: Planning and plan approval
 
-1. Run in background terminal: `python prepare_post.py "[topic]"`
+1. **Run the planning script:**
+   - From repo root: `python scripts/plan_from_url.py --session-dir outputs/<session_id>`
+   - If the script exits non-zero, show the error in chat and stop.
 
-2. **Poll for completion** (Cursor cannot auto-detect file creation):
-```python
-   import time
-   from pathlib import Path
-   
-   marker_file = Path("temporary/review_ready.json")
-   timeout = 300  # 5 minutes
-   elapsed = 0
-   
-   while not marker_file.exists() and elapsed < timeout:
-       time.sleep(3)  # Check every 3 seconds
-       elapsed += 3
-   
-   if not marker_file.exists():
-       # Timeout - check terminal output for errors
-       print("ERROR: Script timed out after 5 minutes. Check terminal output.")
-       # Abort workflow
+2. **Read `plan.json`** from the session folder. Present in chat:
+```
+Execution plan
+
+Pillar: [pillar]
+Angle: [angle]
+
+Plan:
+[plan text]
+
+Approve this plan to continue to research, or paste your edits (I'll update plan.json and then continue).
 ```
 
-3. When `review_ready.json` appears, read it to get the session folder path, then proceed to Phase 3.
-
-**Implementation note:** Use bash_tool or Python execution to run the polling loop. Show progress in chat every 30 seconds: "Still preparing... (elapsed: 30s, 60s, etc.)"
+3. **Handle user response:**
+   - **Approve:** Continue to Phase 3 (research).
+   - **Edit:** Update `plan.json` with the user's changes (e.g. replace `plan`, `angle`, or `pillar` as appropriate), then continue to Phase 3.
+   - Do **not** run Phase 3 (research) until the user has explicitly approved or you have applied their edits to plan.json.
 
 ---
 
-### Phase 3: Review loop
+### Phase 3: Research
 
-When `review_ready.json` appears:
+1. Run: `python scripts/research.py --session-dir outputs/<session_id>` (from repo root).
+2. If the script exits non-zero: check for `research_dehallucination.txt` in the session folder. If present: read that file and show the question in chat. Ask the user to paste their answer. Write the user's answer to `research_dehallucination_answer.txt` in the **session folder** (same folder as research.md). Re-run: `python scripts/research.py --session-dir outputs/<session_id>`. The researcher will read the answer file and continue. Otherwise show the script error and stop.
+3. Read `research.md` (and optionally `research_meta.json`) from the session folder. Present a short summary in chat; user may approve or skip to next step.
+4. Proceed to Phase 4 (scout and draft).
 
-1. Read `temporary/review_ready.json` to get `output_dir` path.
-2. Read outputs from the session folder:
-   - `draft_final.md` for post text
-   - `engagement.json` for targets and comments
-3. Format review in chat:
+---
+
+### Phase 4: Scout and draft, then review
+
+1. Run: `python scripts/scout.py --session-dir outputs/<session_id>` (from repo root). If Scout finds fewer than 6 targets, mention it in chat and still proceed.
+2. If Scout found more than 6 targets, run: `python scripts/pick_targets.py --session-dir outputs/<session_id>`. This picks the best 6 for Golden Hour and overwrites scout_targets in engagement.json.
+3. Run: `python scripts/draft.py --session-dir outputs/<session_id>`. If the user had requested "Regenerate" with feedback, run with `--revision-feedback "<text>"` instead.
+4. Read from the session folder: `draft_final.md`, `draft_meta.json`, `engagement.json`. Format review in chat:
 ```
 📝 Draft ready for review
 
@@ -89,18 +102,20 @@ What would you like to do?
 - "Regenerate" to run Architect again
 ```
 
-3. Handle user response:
-   - **Approve:** Move to Phase 4.
-   - **Edit request:** Apply changes to `draft_final.md` and `engagement.json`, show diff, ask "Approve these changes?"
-   - **Regenerate:** Re-run Architect with feedback, return to review.
+5. Handle user response:
+   - **Approve:** Move to Phase 5 (scheduling).
+   - **Edit request:** Apply changes to `draft_final.md`, `draft_meta.json`, and/or `engagement.json`, show diff, ask "Approve these changes?"
+   - **Regenerate:** Re-run draft script with `--revision-feedback "<user feedback>"`, then return to step 3 (show draft again).
 
 ---
 
-### Phase 4: Scheduling
+### Phase 5: Assembly and scheduling
 
 After approval:
 
-1. Calculate next Golden Hour (8:00am NZST; tomorrow if after 8am today):
+1. **Assemble session state:** Run `python scripts/assemble_session_state.py --session-dir outputs/<session_id>` (from repo root). This writes `session_state.json` so `execute_post.py` can run later. If the script fails, show the error and stop.
+
+2. Calculate next Golden Hour (8:00am NZST; tomorrow if after 8am today):
 ```python
    from datetime import datetime, timedelta
    import pytz
@@ -115,7 +130,7 @@ After approval:
        exec_time = (now + timedelta(days=1)).replace(hour=8, minute=0, second=0, microsecond=0)
 ```
 
-2. Create OS scheduled task:
+3. Create OS scheduled task:
 ```python
    from tools.scheduler import schedule_execution
    
@@ -128,7 +143,7 @@ After approval:
        print(f"python execute_post.py {session_id}")
 ```
 
-3. Write `temporary/approved.json`:
+4. Write `temporary/approved.json`:
 ```json
    {
      "session_id": "2026-03-01_medtech-alex",
@@ -137,7 +152,7 @@ After approval:
    }
 ```
 
-4. Append to `temporary/pending_posts.json`:
+5. Append to `temporary/pending_posts.json`:
 ```json
    {
      "posts": [
@@ -150,7 +165,7 @@ After approval:
    }
 ```
 
-5. Confirm in chat:
+6. Confirm in chat:
 ```
    ✓ Approved and scheduled
    Post will go live: Tomorrow 8:00am NZST
@@ -161,7 +176,7 @@ After approval:
 
 ---
 
-### Phase 5: Learning from feedback
+### Phase 6: Learning from feedback
 
 If the user requests changes during review:
 

@@ -27,7 +27,7 @@ Or manually in chat: "Execute 2026-03-01_medtech-alex"
 
 ### Process
 
-1. Load session state from `outputs/[session_id]/session_state.json`.
+1. Load session state from `outputs/[session_id]/session_state.json`. (This file is written by `scripts/assemble_session_state.py` when the user approves the draft in the linkedin-post-create skill; it must exist before execution.)
 2. Optionally verify approval marker in `temporary/approved.json`.
 3. Execute posting:
    - 6 Golden Hour comments to scout targets (in order).

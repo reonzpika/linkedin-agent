@@ -4,6 +4,7 @@ Headed mode only; session-file auth preferred; semantic/accessibility selectors;
 """
 
 import random
+import re
 import time
 from typing import Any
 
@@ -43,6 +44,120 @@ def dismiss_modal_if_present(page: Any) -> None:
         pass
 
 
+def _parse_aria_label_name(aria_label: str) -> str:
+    """Parse author name from View: ... aria-label. Max 80 chars."""
+    if not aria_label or not aria_label.startswith("View: "):
+        return ""
+    label = aria_label.replace("View: ", "", 1).strip()
+    # Remove trailing " N followers" (company)
+    label = re.sub(r"\s+\d[\d,]*\s+followers\s*$", "", label, flags=re.IGNORECASE)
+    # Take only the name part before " |" (person headline)
+    if " |" in label:
+        label = label.split(" |", 1)[0].strip()
+    return label[:80] if label else ""
+
+
+def _extract_post(post: Any) -> dict[str, Any] | None:
+    """
+    Extract {name, url, post_url, snippet, posted_date} from a single feed post locator.
+    Uses data-urn for URL, aria-label for name (with fallbacks), and commentary/description for snippet.
+    Returns None if post URL cannot be determined.
+    """
+    try:
+        # Post URL: build from container data-id / data-urn
+        urn = (
+            (post.get_attribute("data-id") or post.get_attribute("data-urn") or "")
+            .strip()
+        )
+        if not urn:
+            inner = post.locator("[data-urn^='urn:li:activity:']").first
+            if inner.count() > 0:
+                urn = (inner.get_attribute("data-urn") or "").strip()
+        if not urn:
+            link = post.locator("a[href*='/feed/update/']").first
+            if link.count() > 0:
+                href = link.get_attribute("href") or ""
+                if href:
+                    post_url = (
+                        href
+                        if href.startswith("http")
+                        else f"https://www.linkedin.com{href}"
+                    )
+                else:
+                    return None
+            else:
+                return None
+        else:
+            post_url = (
+                urn
+                if urn.startswith("http")
+                else f"https://www.linkedin.com/feed/update/{urn.rstrip('/')}/"
+            )
+
+        # Author name: prefer aria-label on View: link, then title/name
+        name = ""
+        actor_link = post.locator("a[aria-label^='View:']").first
+        if actor_link.count() > 0:
+            aria_label = actor_link.get_attribute("aria-label") or ""
+            name = _parse_aria_label_name(aria_label)
+        if not name:
+            author_elem = (
+                post.locator(".update-components-actor__title").first
+                .or_(post.locator(".update-components-actor__name").first)
+            )
+            name = (
+                author_elem.inner_text()[:80]
+                if author_elem.count() > 0
+                else "LinkedIn User"
+            )
+        if not name:
+            name = "LinkedIn User"
+
+        # Snippet: primary selectors then fallbacks
+        desc_elem = (
+            post.locator(".feed-shared-update-v2__description").first
+            .or_(post.locator(".update-components-update-v2__commentary").first)
+        )
+        snippet = (
+            desc_elem.inner_text()[:200].strip()
+            if desc_elem.count() > 0
+            else ""
+        )
+        if not snippet:
+            fallback = post.locator("[class*='commentary']").first
+            if fallback.count() > 0:
+                snippet = fallback.inner_text()[:200].strip()
+        if not snippet:
+            # First dir=ltr block with substantial text
+            for elem in post.locator("[dir='ltr']").all():
+                text = (elem.inner_text() or "").strip()
+                if len(text) > 50:
+                    snippet = text[:200]
+                    break
+
+        # Posted date
+        time_elem = post.locator("time[datetime]").first
+        posted_date = (
+            time_elem.get_attribute("datetime") or ""
+            if time_elem.count() > 0
+            else ""
+        )
+        if not posted_date:
+            sub_desc = post.locator(".update-components-actor__sub-description").first
+            if sub_desc.count() > 0:
+                posted_date = sub_desc.inner_text()[:50].strip()
+
+        return {
+            "name": name,
+            "url": post_url,
+            "post_url": post_url,
+            "snippet": snippet,
+            "posted_date": posted_date,
+        }
+    except Exception:
+        return None
+
+
 def get_browser_context() -> Any:
     """
     Return an authenticated Playwright browser context.
@@ -56,6 +171,7 @@ def get_browser_context() -> Any:
 def scrape_personal_feed(context: Any, max_posts: int = 20) -> list[dict[str, Any]]:
     """
     Navigate to LinkedIn personal feed, scrape recent posts.
+    Scrolls until at least min(30, max_posts) posts are loaded or max iterations reached.
     Returns list of {name, url, post_url, snippet, posted_date}.
     """
     page = context.new_page()
@@ -69,57 +185,27 @@ def scrape_personal_feed(context: Any, max_posts: int = 20) -> list[dict[str, An
         _random_delay()
         dismiss_modal_if_present(page)
 
-        page.evaluate("window.scrollBy(0, 1000)")
-        _random_delay()
+        target = min(30, max_posts)
+        max_scrolls = 20
+        prev_count = 0
+        for _ in range(max_scrolls):
+            page.evaluate("window.scrollBy(0, 800)")
+            time.sleep(2)
+            posts = page.locator("[data-id^='urn:li:activity:']").all()
+            count = len(posts)
+            if count >= target:
+                break
+            if count == prev_count:
+                break
+            prev_count = count
 
-        posts = page.locator("[data-id*='urn:li:activity']").all()[:max_posts]
+        _random_delay()
+        posts = page.locator("[data-id^='urn:li:activity:']").all()[:max_posts]
 
         for post in posts:
-            try:
-                author_elem = post.locator(".update-components-actor__name").first
-                name = (
-                    author_elem.inner_text()[:80]
-                    if author_elem.count() > 0
-                    else "LinkedIn User"
-                )
-
-                link = post.locator(
-                    "a[href*='/posts/'], a[href*='/feed/update']"
-                ).first
-                if link.count() == 0:
-                    continue
-                href = link.get_attribute("href") or ""
-                post_url = (
-                    href
-                    if href.startswith("http")
-                    else f"https://www.linkedin.com{href}"
-                )
-
-                desc_elem = post.locator(
-                    ".feed-shared-update-v2__description"
-                ).first
-                snippet = (
-                    desc_elem.inner_text()[:200]
-                    if desc_elem.count() > 0
-                    else ""
-                )
-
-                time_elem = post.locator("time").first
-                posted_date = (
-                    time_elem.get_attribute("datetime") or ""
-                    if time_elem.count() > 0
-                    else ""
-                )
-
-                results.append({
-                    "name": name,
-                    "url": post_url,
-                    "post_url": post_url,
-                    "snippet": snippet,
-                    "posted_date": posted_date,
-                })
-            except Exception:
-                continue
+            row = _extract_post(post)
+            if row:
+                results.append(row)
 
         return results
     except Exception as e:
@@ -153,66 +239,27 @@ def scrape_hashtag_posts(
                 )
                 _random_delay()
                 dismiss_modal_if_present(page)
-                page.evaluate("window.scrollBy(0, 1000)")
+
+                # Scroll multiple times and wait for content to load
+                for _ in range(3):
+                    page.evaluate("window.scrollBy(0, 800)")
+                    time.sleep(2)
+
                 _random_delay()
 
-                posts = page.locator("[data-id*='urn:li:activity']").all()[:10]
+                posts = page.locator("[data-id^='urn:li:activity:']").all()
 
                 for post in posts:
-                    try:
-                        author_elem = post.locator(
-                            ".update-components-actor__name"
-                        ).first
-                        name = (
-                            author_elem.inner_text()[:80]
-                            if author_elem.count() > 0
-                            else "LinkedIn User"
-                        )
-
-                        link = post.locator(
-                            "a[href*='/posts/'], a[href*='/feed/update']"
-                        ).first
-                        if link.count() == 0:
-                            continue
-                        href = link.get_attribute("href") or ""
-                        post_url = (
-                            href
-                            if href.startswith("http")
-                            else f"https://www.linkedin.com{href}"
-                        )
-
-                        if post_url in seen_urls:
-                            continue
-                        seen_urls.add(post_url)
-
-                        desc_elem = post.locator(
-                            ".feed-shared-update-v2__description"
-                        ).first
-                        snippet = (
-                            desc_elem.inner_text()[:200]
-                            if desc_elem.count() > 0
-                            else ""
-                        )
-
-                        time_elem = post.locator("time").first
-                        posted_date = (
-                            time_elem.get_attribute("datetime") or ""
-                            if time_elem.count() > 0
-                            else ""
-                        )
-
-                        all_results.append({
-                            "name": name,
-                            "url": post_url,
-                            "post_url": post_url,
-                            "snippet": snippet,
-                            "posted_date": posted_date,
-                        })
-
-                        if len(all_results) >= max_posts:
-                            break
-                    except Exception:
+                    row = _extract_post(post)
+                    if not row:
                         continue
+                    post_url = row["post_url"]
+                    if post_url in seen_urls:
+                        continue
+                    seen_urls.add(post_url)
+                    all_results.append(row)
+                    if len(all_results) >= max_posts:
+                        break
 
                 if len(all_results) >= max_posts:
                     break

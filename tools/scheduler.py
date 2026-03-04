@@ -21,7 +21,7 @@ def schedule_execution(session_id: str, execution_time: datetime) -> dict:
     try:
         if system == "Windows":
             task_name = f"LinkedInPost_{session_id.replace('-', '_')[:50]}"
-            date_str = execution_time.strftime("%Y-%m-%d")
+            date_str = execution_time.strftime("%d/%m/%Y")
             time_str = execution_time.strftime("%H:%M")
             cmd_str = f'"{python_exe}" "{script_path}" {session_id}'
             cmd = [

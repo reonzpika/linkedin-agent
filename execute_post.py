@@ -37,7 +37,7 @@ def main() -> None:
 
     state = json.loads(state_file.read_text(encoding="utf-8"))
 
-    from graph.workflow import executor_run
+    from tools.executor import executor_run
     from tools.browser import get_browser_context
 
     context = get_browser_context()

@@ -2,3 +2,7 @@
 temporary/*.json
 __pycache__/
 *.pyc
+outputs/
+*feed*.html
+linkedin_feed.html
+my-feed.html

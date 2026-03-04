@@ -18,7 +18,7 @@ def get_model(agent_name: str):
     raw = CONFIG_PATH.read_text(encoding="utf-8")
     config = json.loads(raw)
     entry = config.get(agent_name, {})
-    model_id = entry.get("model", "claude-3-5-sonnet-20241022")
+    model_id = entry.get("model", "claude-sonnet-4-6")
     api_key = os.getenv("ANTHROPIC_API_KEY")
     kwargs = {"model": model_id, "api_key": api_key}
     base_url = os.getenv("ANTHROPIC_BASE_URL")

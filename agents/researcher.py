@@ -51,6 +51,8 @@ Dehallucination: if the topic touches any of these, output instead a single line
 """
 
     user = f"Topic: {raw_input}\n\nFetched content (Tavily + Crawl4AI + Claude Haiku):\n{research_content[:12000]}"
+    if state.get("dehallucination_answer"):
+        user += f"\n\nHuman clarification (use this; do not output DEHALLUCINATION): {state['dehallucination_answer']}"
 
     from agents._llm import invoke
 
