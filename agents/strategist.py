@@ -68,6 +68,13 @@ def run(state: LinkedInContext) -> dict:
         if found:
             bait_in_comments.append(f"comment {i+1}: {found}")
 
+    # Check comment word counts (15-25 words target)
+    long_comments = []
+    for i, c in enumerate(comments_list):
+        word_count = len((c or "").split())
+        if word_count > 30:  # Allow some tolerance, but flag egregious violations
+            long_comments.append(f"comment {i+1}: {word_count} words (target: 15-25)")
+
     failures = []
     if word_count < 150 or word_count > 300:
         failures.append(f"Word count {word_count} (required 150-300)")
@@ -85,6 +92,8 @@ def run(state: LinkedInContext) -> dict:
         failures.append(f"Engagement bait in first_comment: {bait_in_first}")
     if bait_in_comments:
         failures.append("Engagement bait in comments_list: " + "; ".join(bait_in_comments))
+    if long_comments:
+        failures.append("Comments too long (target 15-25 words): " + "; ".join(long_comments))
     if has_em_dash:
         failures.append(
             "Replace all em dashes (—) with a comma, semicolon, or full stop; never use em dashes in output."

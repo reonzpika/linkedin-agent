@@ -30,11 +30,72 @@ ClinicPro is evidence of this positioning, not the whole story. Posts that only 
 - No marketing fluff
 - Honest about current state while signalling future direction
 
+**Sentence structure rules:**
+- Prefer short sentences (10-15 words) over long compound sentences
+- One idea per sentence
+- Active voice always ("GPs absorb the work" not "the work is absorbed by GPs")
+- Cut filler phrases ("worth sitting with" → "matters", "genuinely impressive by any global benchmark" → "faster than most countries")
+- If a sentence has more than 20 words, split it
+
+**Readability test:**
+- Read it aloud - if you run out of breath, the sentence is too long
+- If you need to re-read a sentence to understand it, rewrite it
+- Every paragraph should have at least one sentence under 12 words
+
 **Voice characteristics:**
 - First-person always (never third-person references to ClinicPro or Dr Ryo)
 - Clinical credibility through specificity (name exact systems, exact friction points)
 - Translator positioning: explains what technical developments mean for daily GP practice
 - No hedging, no corporate tone
+
+---
+
+## Golden Hour Comments (Pre-Engagement Protocol)
+
+**Purpose:** Comments on target posts 5-10 minutes before publishing own post. These warm up the algorithm and signal you're an active participant, not just a broadcaster.
+
+**Length target:** 15-25 words (one substantial sentence, or two short sentences maximum)
+
+**Tone rules:**
+- Write in simple, everyday English (avoid complex clauses and formal vocabulary)
+- Share your own practice experience when relevant ("We're seeing this too", "We had the same issue")
+- Ask genuine questions when you don't know something
+- State observations directly without hedging
+- No essay rhythm, no formal conclusions
+
+**Banned phrases (sound unnatural):**
+- "genuine infrastructure achievement"
+- "structural headwinds"
+- "documentation tax"
+- "path of least resistance"
+- "irreducible feature"
+- "curation problem"
+- "identity shift"
+- "doesn't fully resolve"
+- Any phrase that sounds like a policy brief or academic paper
+
+**Structure:**
+- One sentence: observation + your experience
+- Two sentences: agree/react, then add context from your practice
+- Never: claim → elaborate → conclude (formal essay style)
+
+**Good examples:**
+- "We're seeing similar productivity gains at our practice since adding Heidi. The hard part was getting buy-in from the older GPs initially."
+- "This is honest. The GP funding model makes it really hard to justify new tools, even when they save time."
+- "The 15-minute documentation time is the real issue. If the note is faster, you can actually think during the consult."
+- "We hit this exact problem last month. Ended up calling the specialist directly to confirm they got the referral."
+- "Same here. The workaround takes longer than the actual clinical decision."
+
+**Bad examples (too formal, too long, unnatural):**
+- "Getting Heidi into every NZ ED is a genuine infrastructure achievement, and the Middlemore productivity data backs it up. The implementation challenge you're describing from those early sites, where clinician buy-in had to be earned consultation by consultation, is exactly why rollout sequencing matters more than the technology itself."
+- "The system rewarding throughput over thinking is a documentation problem as much as a culture problem. When the note takes 15 minutes, speed becomes the path of least resistance."
+
+**What to avoid:**
+- Long, balanced sentences with multiple clauses
+- Abstract nouns and formal vocabulary
+- Three-sentence mini-essays
+- Trying to sound like a consultant or policy analyst
+- Repeating the same formal rhythm every time
 
 ---
 
@@ -153,3 +214,4 @@ When discussing industry developments (e.g. Medtech ALEX Intelligence Layer), ac
 | Acknowledge progress before naming gaps | Complain without acknowledging progress |
 | Reference live features only | Mention Inbox AI, roadmap, or funded timelines |
 | Direct, problem-focused tone | Marketing fluff, hedging, corporate jargon |
+| Golden Hour comments: 15-25 words, simple English, share practice experience | Golden Hour comments: formal vocabulary, essay rhythm, abstract claims |

@@ -112,6 +112,31 @@ With 136 connections, algorithm shows post to maybe 15-20 people initially. If 3
 
 **Comments over 15 words carry 2.5x more algorithmic weight than shorter interactions.**
 
+### Golden Hour comment guidelines
+
+**Length:** 15-25 words (one substantial sentence, or two short sentences maximum)
+
+**Tone:** Simple, everyday English. Share your own practice experience. No formal vocabulary or essay rhythm.
+
+**Good examples:**
+- "We're seeing similar productivity gains at our practice since adding Heidi. The hard part was getting buy-in from the older GPs initially."
+- "This is honest. The GP funding model makes it really hard to justify new tools, even when they save time."
+- "The 15-minute documentation time is the real issue. If the note is faster, you can actually think during the consult."
+- "We hit this exact problem last month. Ended up calling the specialist directly to confirm they got the referral."
+
+**Bad examples (too formal, too long):**
+- "Getting Heidi into every NZ ED is a genuine infrastructure achievement, and the Middlemore productivity data backs it up. The implementation challenge you're describing..."
+- "The system rewarding throughput over thinking is a documentation problem as much as a culture problem. When the note takes 15 minutes..."
+
+**Banned phrases:**
+- "genuine infrastructure achievement", "structural headwinds", "documentation tax", "path of least resistance", "irreducible feature", "curation problem", "identity shift", "doesn't fully resolve"
+- Any phrase that sounds like a policy brief or academic paper
+
+**Structure:**
+- One sentence: observation + your experience
+- Two sentences: agree/react, then add context from your practice
+- Never: claim → elaborate → conclude (formal essay style)
+
 ---
 
 ## Hashtag Strategy (2025 Algorithm)

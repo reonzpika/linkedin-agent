@@ -89,10 +89,18 @@ def main() -> int:
     first_comment = state.get("first_comment") or ""
     hashtags = state.get("hashtags") or []
     comments_list = state.get("comments_list") or []
+    suggested_mentions = state.get("suggested_mentions") or []
 
     (session_dir / "draft_final.md").write_text(post_draft, encoding="utf-8")
     (session_dir / "draft_meta.json").write_text(
-        json.dumps({"first_comment": first_comment, "hashtags": hashtags}, indent=2),
+        json.dumps(
+            {
+                "first_comment": first_comment,
+                "hashtags": hashtags,
+                "suggested_mentions": suggested_mentions,
+            },
+            indent=2,
+        ),
         encoding="utf-8",
     )
     engagement_data["comments_list"] = comments_list

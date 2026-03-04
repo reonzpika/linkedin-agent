@@ -89,7 +89,14 @@ POST:
 [post_draft with line breaks preserved]
 
 HASHTAGS: [list]
+SUGGESTED MENTIONS: [list or "None"]
 FIRST COMMENT: [first_comment]
+
+**About suggested mentions:**
+- Architect suggests mentions only when post directly discusses that entity's work
+- You can accept, reject, or modify these before approving
+- Mentions will NOT be auto-inserted into the post; you decide if/where to add them
+- LinkedIn algorithm penalises >3 tags per post; use sparingly
 
 GOLDEN HOUR COMMENTS (6):
 1. [target.name] → [comment text]
@@ -115,63 +122,37 @@ After approval:
 
 1. **Assemble session state:** Run `python scripts/assemble_session_state.py --session-dir outputs/<session_id>` (from repo root). This writes `session_state.json` so `execute_post.py` can run later. If the script fails, show the error and stop.
 
-2. Calculate next Golden Hour (8:00am NZST; tomorrow if after 8am today):
+2. Calculate next available Tue/Thu 8:00am NZST slot and create OS scheduled task:
 ```python
-   from datetime import datetime, timedelta
-   import pytz
+   from tools.scheduler import schedule_execution_auto_slot
+   from tools.schedule_manager import get_schedule_summary
    
-   nz_tz = pytz.timezone('Pacific/Auckland')
-   now = datetime.now(nz_tz)
-   
-   # Next 8am NZST
-   if now.hour < 8:
-       exec_time = now.replace(hour=8, minute=0, second=0, microsecond=0)
-   else:
-       exec_time = (now + timedelta(days=1)).replace(hour=8, minute=0, second=0, microsecond=0)
-```
-
-3. Create OS scheduled task:
-```python
-   from tools.scheduler import schedule_execution
-   
-   result = schedule_execution(session_id, exec_time)
+   result = schedule_execution_auto_slot(session_id)
    
    if not result["success"]:
-       # Show error, offer manual execution
-       print(f"⚠️  Scheduling failed: {result['error']}")
+       print(f"Scheduling failed: {result['error']}")
        print(f"To execute manually at Golden Hour, run:")
        print(f"python execute_post.py {session_id}")
 ```
 
-4. Write `temporary/approved.json`:
-```json
-   {
-     "session_id": "2026-03-01_medtech-alex",
-     "approved_at": "2026-03-01T17:30:00Z",
-     "scheduled_for": "2026-03-02T08:00:00+13:00"
-   }
-```
+4. Write `temporary/approved.json` using values from result: `scheduled_for` (main post time, 8:00am NZST), and `executor_runs_at` (7:40am NZST) from `schedule_execution_auto_slot`. Include `session_id`, `approved_at` (now ISO), `scheduled_for`.
 
-5. Append to `temporary/pending_posts.json`:
-```json
-   {
-     "posts": [
-       {
-         "session_id": "2026-03-01_medtech-alex",
-         "scheduled_for": "2026-03-02T08:00:00+13:00",
-         "status": "scheduled"
-       }
-     ]
-   }
-```
+5. Append to `temporary/pending_posts.json` with `session_id`, `scheduled_for` from result, `status`: "scheduled".
 
-6. Confirm in chat:
+6. Confirm in chat with schedule summary:
 ```
-   ✓ Approved and scheduled
-   Post will go live: Tomorrow 8:00am NZST
-   Session: 2026-03-01_medtech-alex
-   
-   I'll execute the Golden Hour protocol automatically.
+   Approved and scheduled
+
+   Comments: {result["executor_runs_at"]} NZST (7:40am)
+   Main post: {result["scheduled_for"]} NZST (8:00am)
+   Session: {session_id}
+
+   {get_schedule_summary()}
+
+   Golden Hour protocol will run automatically:
+   * 7:40am - Post 6 pre-engagement comments
+   * Wait 20 minutes
+   * 8:00am - Post main content + first comment
 ```
 
 ---

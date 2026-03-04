@@ -29,7 +29,7 @@ This repo follows the WAT Framework. Before creating any new file, check whether
 | Outputs | `/outputs/` | Per-session folders (session folder contract above); never committed to git |
 | Auth | `/auth/` | LinkedIn session files, never committed to git |
 | Config | `config/model_config.json` | Model per agent (planner, researcher, architect, etc.); `requirements.txt` for packages |
-| Temporary | `/temporary/` | approved.json, pending_posts.json for scheduling |
+| Temporary | `/temporary/` | approved.json, pending_posts.json, schedule_registry.json for scheduling |
 | Graph | `/graph/` | **Deprecated.** Legacy LangGraph; chat-first flow uses scripts and session folder |
 
 **Rules:**
@@ -52,7 +52,7 @@ Per-run handoff lives under `outputs/<session_id>/` (session_id = `YYYY-MM-DD_<s
 | `research_meta.json` | `scripts/research.py` | `target_urls`, `pillar` |
 | `engagement.json` | `scripts/scout.py` (targets), optionally `scripts/pick_targets.py` (reduce to 6), then `scripts/draft.py` (comments) | `scout_targets`, `comments_list` |
 | `draft_final.md` | `scripts/draft.py` | Post body only |
-| `draft_meta.json` | `scripts/draft.py` | `first_comment`, `hashtags` |
+| `draft_meta.json` | `scripts/draft.py` | `first_comment`, `hashtags`, `suggested_mentions` |
 | `session_state.json` | Assembly step (skill or `scripts/assemble_session_state.py`) | Dict for executor: `scout_targets`, `comments_list`, `post_draft`, `first_comment` |
 
 Before execution, assembly builds `session_state.json` from the other session files so `execute_post.py` can read one file and run the Golden Hour protocol.
@@ -65,7 +65,7 @@ Before execution, assembly builds `session_state.json` from the other session fi
 
 **Entry points:**
 
-- **linkedin-post-create** (skill): Only way to start a new post. Prompts for topic/URL and optional pillar/angle; creates session folder and `input.json`; runs `scripts/plan_from_url.py` → present plan in chat → after approval, runs `scripts/research.py` → present research → runs `scripts/scout.py` then, if more than 6 targets, `scripts/pick_targets.py` then `scripts/draft.py` → present draft in chat → after approval, runs `scripts/assemble_session_state.py` then schedules via `tools/scheduler.schedule_execution`. Session state is written so `execute_post.py` can run later.
+- **linkedin-post-create** (skill): Only way to start a new post. Prompts for topic/URL and optional pillar/angle; creates session folder and `input.json`; runs `scripts/plan_from_url.py` → present plan in chat → after approval, runs `scripts/research.py` → present research → runs `scripts/scout.py` then, if more than 6 targets, `scripts/pick_targets.py` then `scripts/draft.py` → present draft in chat → after approval, runs `scripts/assemble_session_state.py` then schedules via `tools/scheduler.schedule_execution_auto_slot`. Session state is written so `execute_post.py` can run later.
 - **execute_post.py**: Loads `outputs/[session_id]/session_state.json`, runs Golden Hour via `tools/executor.executor_run`. Called by OS scheduler or manually (linkedin-post-execute skill).
 - **main.py** / **prepare_post.py**: Deprecated. Use the skill and scripts instead.
 
@@ -87,7 +87,27 @@ Before execution, assembly builds `session_state.json` from the other session fi
 **Agent roles** (called by scripts with state dicts):
 
 - **Scout**: Discovers 6 Golden Hour targets (personal feed + hashtag fallback). Returns scout_targets only. Uses `tools/browser.scrape_personal_feed` and `scrape_hashtag_posts`.
-- **Architect**: Drafts post_draft, first_comment, hashtags, 6 comments. Uses voice_profile, algorithm_sop, hashtag_library; accepts optional revision_feedback in state.
+- **Architect**: Drafts post_draft, first_comment, hashtags, 6 comments, suggested_mentions (0-2). Uses voice_profile, algorithm_sop, hashtag_library, mention_library; accepts optional revision_feedback in state. Golden Hour comments: 15-25 words, simple English, practice-grounded (see voice_profile and algorithm_sop).
+
+### Posting Schedule
+
+**Cadence:** Twice weekly; Tuesday and Thursday at 8:00am NZST.
+
+**Golden Hour protocol:**
+- 7:40am NZST: Executor runs, posts 6 Golden Hour comments
+- 20-minute wait (algorithm warm-up period)
+- 8:00am NZST: Main post and first comment published
+
+**Schedule management:**
+- `temporary/schedule_registry.json` tracks all scheduled posts
+- `get_next_available_slot()` finds the next free Tue/Thu 8am slot
+- Conflict detection prevents double-booking the same time slot
+- Schedule summary is shown in the skill after approval
+
+**Files:**
+- `tools/schedule_manager.py`: Schedule registry and slot calculation
+- `tools/scheduler.py`: OS task scheduling (Windows/Mac/Linux)
+- `tools/executor.py`: Golden Hour execution with 20min gap
 
 ---
 
@@ -193,6 +213,7 @@ If the proposed rule change would alter Dr Ryo's public positioning, contradict 
 | `algorithm_sop.md` | 2025 LinkedIn algorithm rules, Golden Hour protocol, hashtag limits | Architect, Strategist, Scout | Cursor (announce in chat first) |
 | `nz_health_context.md` | NZ health system glossary, PHO structures, Medtech context | Researcher | Cursor (announce in chat first) |
 | `hashtag_library.md` | Approved hashtags and tagging rules | Architect | Cursor (announce in chat first) |
+| `mention_library.md` | NZ health sector mentions (suggest only when post discusses their work) | Architect | Cursor (announce in chat first) |
 | `dehallucination_triggers.md` | Sensitive topics requiring human clarification before drafting | Researcher, Architect | Cursor (announce in chat first) |
 
 **Rules:**
@@ -206,7 +227,7 @@ If the proposed rule change would alter Dr Ryo's public positioning, contradict 
 
 Before running any script, the skill must prompt the user for basic info (topic and/or URL, optional pillar and angle) and write `input.json` in the session folder. Scripts assume the session folder and required files exist as per the Session folder table.
 
-Agents (when invoked by scripts) read from `knowledge/` as needed: voice_profile, algorithm_sop, nz_health_context, dehallucination_triggers, clinicpro_strategy, hashtag_library. Scout reads existing `engagement.json` files under `outputs/` to avoid repeating targets.
+Agents (when invoked by scripts) read from `knowledge/` as needed: voice_profile, algorithm_sop, nz_health_context, dehallucination_triggers, clinicpro_strategy, hashtag_library, mention_library. Scout reads existing `engagement.json` files under `outputs/` to avoid repeating targets.
 
 ---
 

@@ -11,6 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 import os
+
 os.chdir(ROOT)
 
 from dotenv import load_dotenv
@@ -65,13 +66,16 @@ def main() -> None:
         if pending_file.exists():
             pending = json.loads(pending_file.read_text(encoding="utf-8"))
             pending["posts"] = [
-                p
-                for p in pending.get("posts", [])
-                if p.get("session_id") != session_id
+                p for p in pending.get("posts", []) if p.get("session_id") != session_id
             ]
-            pending_file.write_text(
-                json.dumps(pending, indent=2), encoding="utf-8"
-            )
+            pending_file.write_text(json.dumps(pending, indent=2), encoding="utf-8")
+
+        try:
+            from tools.schedule_manager import mark_post_executed
+
+            mark_post_executed(session_id)
+        except Exception as e:
+            print(f"Warning: Could not update schedule registry: {e}")
 
         print(f"Execution completed for {session_id}")
         sys.exit(0)
