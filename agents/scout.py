@@ -1,15 +1,13 @@
 """
-LinkedIn Scout: Golden Hour target discovery via personal feed + hashtag scraping.
-Returns 6 recent post targets for engagement; does NOT draft comments (Architect's job).
+LinkedIn Scout: Golden Hour target discovery via personal feed only.
+Returns up to 30 recent post targets for engagement; does NOT draft comments (Architect's job).
 """
 
 import json
-import re
 from pathlib import Path
 
 from graph.state import LinkedInContext
 
-KNOWLEDGE = Path(__file__).resolve().parent.parent / "knowledge"
 OUTPUTS = Path(__file__).resolve().parent.parent / "outputs"
 
 
@@ -78,7 +76,7 @@ def run(state: LinkedInContext) -> dict:
     raw_input = state.get("raw_input") or ""
     recent_urls = _load_recent_engagement_urls()
 
-    from tools.browser import get_browser_context, scrape_personal_feed, scrape_hashtag_posts
+    from tools.browser import get_browser_context, scrape_personal_feed
 
     ctx = get_browser_context()
     scout_targets: list[dict] = []
@@ -100,32 +98,6 @@ def run(state: LinkedInContext) -> dict:
                 filtered = relevant
 
         scout_targets = filtered[:30]
-
-        if len(scout_targets) < 30:
-            hashtag_path = KNOWLEDGE / "hashtag_library.md"
-            if hashtag_path.exists():
-                hashtag_text = hashtag_path.read_text(encoding="utf-8")
-                hashtags = re.findall(r"#[A-Za-z0-9_]+", hashtag_text)[:5]
-
-                if hashtags:
-                    hashtag_posts = scrape_hashtag_posts(
-                        ctx, hashtags, max_posts=30
-                    )
-                    filtered_hashtag = _filter_spam_and_recruiters(
-                        hashtag_posts
-                    )
-                    filtered_hashtag = [
-                        p
-                        for p in filtered_hashtag
-                        if p.get("post_url") not in recent_urls
-                    ]
-                    seen = {t.get("post_url") for t in scout_targets}
-                    for post in filtered_hashtag:
-                        if len(scout_targets) >= 30:
-                            break
-                        if post.get("post_url") not in seen:
-                            seen.add(post.get("post_url"))
-                            scout_targets.append(post)
     finally:
         ctx.close()
 

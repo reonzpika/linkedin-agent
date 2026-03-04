@@ -3,6 +3,8 @@ temporary/*.json
 __pycache__/
 *.pyc
 outputs/
+browser_profile/
+auth/
 *feed*.html
 linkedin_feed.html
 my-feed.html

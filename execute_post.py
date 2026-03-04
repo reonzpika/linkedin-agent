@@ -23,7 +23,15 @@ def main() -> None:
         print("Error: No session_id provided")
         sys.exit(1)
 
-    session_id = sys.argv[1]
+    argv = sys.argv[1:]
+    main_post_only = "--main-post-only" in argv
+    if main_post_only:
+        argv = [a for a in argv if a != "--main-post-only"]
+    session_id = argv[0] if argv else None
+    if not session_id:
+        print("Error: No session_id provided")
+        sys.exit(1)
+
     output_dir = ROOT / "outputs" / session_id
 
     if not output_dir.exists():
@@ -37,12 +45,16 @@ def main() -> None:
 
     state = json.loads(state_file.read_text(encoding="utf-8"))
 
-    from tools.executor import executor_run
+    from tools.executor import executor_run, executor_run_main_post_only
     from tools.browser import get_browser_context
 
     context = get_browser_context()
     try:
-        result = executor_run(state, context)
+        if main_post_only:
+            print("Running main post and first comment only (no Golden Hour comments)")
+            result = executor_run_main_post_only(state, context)
+        else:
+            result = executor_run(state, context)
 
         (output_dir / "execution_results.json").write_text(
             json.dumps(result, indent=2), encoding="utf-8"

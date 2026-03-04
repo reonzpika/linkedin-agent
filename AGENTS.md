@@ -239,6 +239,10 @@ LinkedIn's UI is dynamic. Element references change between sessions, modals app
 - When a selector fails, attempt one autonomous fix: update the selector in `browser.py` and announce in chat: "LinkedIn UI change detected. Updated selector for [action name]."
 - If the fix fails after one attempt, report the error in chat and stop; do not crash silently
 
+**Post URL after publish:** `schedule_post` finds the new post on the feed by content matching (first 100 chars of post text) on `[data-id^='urn:li:activity:']` items, skipping inAppPromotion/aggregate; fallback is first valid post. If no specific URL is found, first comment is skipped.
+
+**Feed scraping:** `tools/browser.py` scrolls with `_scroll_feed_until_ready` (mouse wheel, random 2–3s delay, optional networkidle, break when target count or stalled for STALLED_THRESHOLD or max_scrolls). Only `urn:li:activity:` posts are kept (exclude inAppPromotion, aggregate). Extraction uses inner `[role='article']` when present and skips posts with snippet length < MIN_SNIPPET_LENGTH (50). Tune MIN_SNIPPET_LENGTH, STALLED_THRESHOLD, SCROLL_DELAY_MIN/MAX at top of browser.py if needed.
+
 ### Dehallucination triggers
 
 When `scripts/research.py` detects a sensitive topic, it writes the clarification question to `research_dehallucination.txt` and exits non-zero. The skill must show the question in chat and wait for the user's answer before re-running research (or proceeding with the answer recorded).

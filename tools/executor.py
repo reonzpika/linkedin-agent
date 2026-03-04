@@ -55,3 +55,29 @@ def executor_run(state: dict, context: Any) -> dict:
         raise RuntimeError(r.get("error", "schedule_post failed"))
 
     return {"execution_results": results}
+
+
+def executor_run_main_post_only(state: dict, context: Any) -> dict:
+    """
+    Run only the main post and first comment (no Golden Hour comments).
+    Used for testing or when comments were already posted.
+    """
+    from tools.browser import schedule_post
+    from datetime import datetime, timedelta
+
+    post_draft = state.get("post_draft") or ""
+    first_comment = state.get("first_comment") or ""
+    n = datetime.utcnow()
+    days_ahead = (1 - n.weekday()) % 7
+    if days_ahead == 0 and n.hour >= 21:
+        days_ahead = 7
+    scheduled = (
+        (n + timedelta(days=days_ahead))
+        .replace(hour=19, minute=0, second=0, microsecond=0)
+        .isoformat()
+        + "Z"
+    )
+    r = schedule_post(context, post_draft, first_comment, scheduled)
+    if not r.get("success"):
+        raise RuntimeError(r.get("error", "schedule_post failed"))
+    return {"execution_results": [{"type": "main_post", "result": r}]}

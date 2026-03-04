@@ -1,6 +1,6 @@
 """
 Playwright settings for LinkedIn automation.
-Headed mode only (never headless); session-file auth preferred; human-like delays.
+Headed mode only (never headless); persistent browser profile for cookies, local storage, and preferences.
 """
 
 import os
@@ -23,12 +23,17 @@ USER_AGENT = (
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 )
 
-# Session and credentials
+# Credentials for login when profile is empty or session expired
+LINKEDIN_EMAIL = os.getenv("LINKEDIN_EMAIL", "")
+LINKEDIN_PASSWORD = os.getenv("LINKEDIN_PASSWORD", "")
+
+# Legacy: used by scripts/login.py for session-file flow only
 LINKEDIN_SESSION_PATH = os.getenv(
     "LINKEDIN_SESSION_PATH", "./auth/linkedin_session.json"
 )
-LINKEDIN_EMAIL = os.getenv("LINKEDIN_EMAIL", "")
-LINKEDIN_PASSWORD = os.getenv("LINKEDIN_PASSWORD", "")
+
+# Persistent profile directory (cookies, local storage, IndexedDB)
+BROWSER_PROFILE_DIR = Path("./browser_profile")
 
 
 def _random_delay() -> None:
@@ -40,69 +45,61 @@ def _random_delay() -> None:
 
 def get_browser_context():
     """
-    Return an authenticated Playwright browser context.
-    Prefer session file at LINKEDIN_SESSION_PATH; fall back to credential login only
-    if session is absent or expired. After credential login, save session automatically.
+    Return an authenticated Playwright browser context with persistent storage.
+    Uses a persistent context so cookies, local storage, and preferences persist between runs.
+    If not logged in (feed redirects to login), logs in via LINKEDIN_EMAIL / LINKEDIN_PASSWORD if set.
     """
     from playwright.sync_api import sync_playwright
 
-    session_path = Path(LINKEDIN_SESSION_PATH)
-    session_path.parent.mkdir(parents=True, exist_ok=True)
+    BROWSER_PROFILE_DIR.mkdir(parents=True, exist_ok=True)
 
     pw = sync_playwright().start()
-    browser = pw.chromium.launch(headless=HEADLESS)
-    context_options = {
-        "viewport": VIEWPORT,
-        "user_agent": USER_AGENT,
-        "locale": "en-NZ",
-    }
+    context = pw.chromium.launch_persistent_context(
+        str(BROWSER_PROFILE_DIR),
+        headless=HEADLESS,
+        slow_mo=500,
+        viewport=VIEWPORT,
+        user_agent=USER_AGENT,
+        locale="en-NZ",
+        args=["--disable-blink-features=AutomationControlled"],
+        ignore_default_args=["--enable-automation"],
+    )
 
-    if session_path.exists():
-        try:
-            context = browser.new_context(
-                storage_state=str(session_path), **context_options
-            )
-            # Quick validation: open login page and check if we're still logged in
-            page = context.new_page()
+    page = context.pages[0] if context.pages else context.new_page()
+
+    try:
+        page.goto(
+            "https://www.linkedin.com/feed/",
+            wait_until="domcontentloaded",
+            timeout=15000,
+        )
+        _random_delay()
+
+        if "/login" in page.url or page.locator("text=Sign in").count() > 0:
+            if not (LINKEDIN_EMAIL and LINKEDIN_PASSWORD):
+                raise RuntimeError(
+                    "Not logged in and no credentials provided. "
+                    "Set LINKEDIN_EMAIL and LINKEDIN_PASSWORD in .env, or run: python scripts/login.py"
+                )
             page.goto(
-                "https://www.linkedin.com/feed/",
+                "https://www.linkedin.com/login",
                 wait_until="domcontentloaded",
                 timeout=15000,
             )
             _random_delay()
-            if "/login" in page.url or page.locator("text=Sign in").count() > 0:
-                context.close()
-                context = _login_with_credentials(
-                    browser, context_options, session_path
-                )
-            else:
-                page.close()
-            return context
-        except Exception:
-            context = _login_with_credentials(browser, context_options, session_path)
-            return context
-    else:
-        return _login_with_credentials(browser, context_options, session_path)
+            page.get_by_label("Email or phone").fill(LINKEDIN_EMAIL)
+            _random_delay()
+            page.get_by_label("Password").fill(LINKEDIN_PASSWORD)
+            _random_delay()
+            page.get_by_role("button", name="Sign in", exact=True).click()
+            page.wait_for_url("**/feed/**", timeout=30000)
+            _random_delay()
+    except Exception as e:
+        try:
+            print(f"Login check failed: {e}")
+        except UnicodeEncodeError:
+            print("Login check failed (message contains non-ASCII characters)")
+    finally:
+        page.close()
 
-
-def _login_with_credentials(browser, context_options: dict, session_path: Path):
-    """Log in via LINKEDIN_EMAIL / LINKEDIN_PASSWORD and save session to session_path."""
-    if not (LINKEDIN_EMAIL and LINKEDIN_PASSWORD):
-        raise RuntimeError(
-            "LinkedIn session file is absent or expired. Run: python scripts/login.py"
-        )
-    context = browser.new_context(**context_options)
-    page = context.new_page()
-    page.goto(
-        "https://www.linkedin.com/login", wait_until="domcontentloaded", timeout=15000
-    )
-    _random_delay()
-    page.get_by_label("Email or phone").fill(LINKEDIN_EMAIL)
-    _random_delay()
-    page.get_by_label("Password").fill(LINKEDIN_PASSWORD)
-    _random_delay()
-    page.get_by_role("button", name="Sign in").click()
-    page.wait_for_url("**/feed/**", timeout=30000)
-    context.storage_state(path=str(session_path))
-    page.close()
     return context
