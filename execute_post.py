@@ -26,8 +26,11 @@ def main() -> None:
 
     argv = sys.argv[1:]
     main_post_only = "--main-post-only" in argv
+    comments_then_schedule = "--comments-then-schedule" in argv
     if main_post_only:
         argv = [a for a in argv if a != "--main-post-only"]
+    if comments_then_schedule:
+        argv = [a for a in argv if a != "--comments-then-schedule"]
     session_id = argv[0] if argv else None
     if not session_id:
         print("Error: No session_id provided")
@@ -46,11 +49,31 @@ def main() -> None:
 
     state = json.loads(state_file.read_text(encoding="utf-8"))
 
-    from tools.executor import executor_run, executor_run_main_post_only
+    from tools.executor import (
+        executor_run,
+        executor_run_comments_only,
+        executor_run_main_post_only,
+    )
     from tools.browser import get_browser_context
 
     context = get_browser_context()
     try:
+        if comments_then_schedule:
+            print("Posting 6 Golden Hour comments, then scheduling main post in 20 minutes...")
+            result = executor_run_comments_only(state, context)
+            (output_dir / "execution_results.json").write_text(
+                json.dumps(result, indent=2), encoding="utf-8"
+            )
+            from tools.scheduler import schedule_main_post_in_minutes
+
+            sched = schedule_main_post_in_minutes(session_id, 20)
+            if not sched.get("success"):
+                print(f"Warning: could not schedule main post: {sched.get('error')}")
+                print(f"Run manually in 20 minutes: python execute_post.py {session_id} --main-post-only")
+            else:
+                print(f"6 comments posted. Main post scheduled for {sched.get('run_at', '~20 min')}. Safe to close this terminal.")
+            context.close()
+            sys.exit(0)
         if main_post_only:
             print("Running main post and first comment only (no Golden Hour comments)")
             result = executor_run_main_post_only(state, context)

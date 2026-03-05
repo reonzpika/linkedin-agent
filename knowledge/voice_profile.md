@@ -30,23 +30,39 @@ ClinicPro is evidence of this positioning, not the whole story. Posts that only 
 - No marketing fluff
 - Honest about current state while signalling future direction
 
-**Sentence structure rules:**
-- Prefer short sentences (10-15 words) over long compound sentences
-- One idea per sentence
-- Active voice always ("GPs absorb the work" not "the work is absorbed by GPs")
-- Cut filler phrases ("worth sitting with" → "matters", "genuinely impressive by any global benchmark" → "faster than most countries")
-- If a sentence has more than 20 words, split it
-
-**Readability test:**
-- Read it aloud - if you run out of breath, the sentence is too long
-- If you need to re-read a sentence to understand it, rewrite it
-- Every paragraph should have at least one sentence under 12 words
-
 **Voice characteristics:**
 - First-person always (never third-person references to ClinicPro or Dr Ryo)
 - Clinical credibility through specificity (name exact systems, exact friction points)
 - Translator positioning: explains what technical developments mean for daily GP practice
 - No hedging, no corporate tone
+
+**Sentence structure rules:**
+- Short sentences (10-15 words ideal, 20 words maximum)
+- One idea per sentence
+- Active voice always ("GPs absorb the work" not "the work is absorbed by GPs")
+- Cut filler phrases:
+  - ❌ "worth sitting with" → ✅ "matters"
+  - ❌ "genuinely impressive by any global benchmark" → ✅ "faster than most countries"
+  - ❌ "the pattern emerging from" → ✅ "some sites are hitting"
+  - ❌ "policy assurances" → ✅ "what vendors promise"
+- If a sentence exceeds 20 words, split it into two sentences
+- Every paragraph should have at least one sentence under 12 words
+- No sentence fragments (each sentence must have subject + verb)
+
+**Readability test:**
+- Read it aloud - if you run out of breath, the sentence is too long
+- If you need to re-read a sentence to understand it, rewrite it
+- Prefer simple connectors ("But" "So" "And") over complex ones ("However" "Nevertheless" "Consequently")
+
+**Good sentence examples:**
+- "The Middlemore numbers: 80% reported productivity gains, 84% reported better wellbeing, and doctors saw one extra patient per shift."
+- "AI can generate clinical notes reliably now. Getting those notes into discharge summaries is the hard part."
+- "Primary care knows this problem well. Clinical photos won't attach to referrals. Discharge summaries arrive as fax PDFs."
+
+**Bad sentence examples (too long, too complex):**
+- "That number is bigger than the original pilot target, and Health NZ is now approving 1,000 more licences for mental health teams, predominantly for mental health teams."
+- "The pattern emerging from some ED sites is familiar to anyone who has watched how outdated local IT infrastructure limits the integration capabilities of new clinical tools."
+- "What's missing from this picture is equivalent government support for primary care, where GPs are still carrying the documentation burden with no equivalent programme."
 
 ---
 
@@ -109,6 +125,10 @@ ClinicPro is evidence of this positioning, not the whole story. Posts that only 
 - "excited to announce"
 - "thrilled"
 - "leveraging"
+- "worth sitting with" (use "matters" instead)
+- "genuinely impressive by any global benchmark" (use "faster than most countries" instead)
+- "the pattern emerging from" (use "some sites are hitting" instead)
+- "policy assurances" (use "what vendors promise" or "promises" instead)
 - Any variation of "what do you think?" or open engagement-bait questions
 
 ---
@@ -215,3 +235,6 @@ When discussing industry developments (e.g. Medtech ALEX Intelligence Layer), ac
 | Reference live features only | Mention Inbox AI, roadmap, or funded timelines |
 | Direct, problem-focused tone | Marketing fluff, hedging, corporate jargon |
 | Golden Hour comments: 15-25 words, simple English, share practice experience | Golden Hour comments: formal vocabulary, essay rhythm, abstract claims |
+| Short sentences (10-15 words ideal, 20 max) | Long compound sentences over 20 words |
+| Active voice | Passive voice |
+| Simple connectors (But, So, And) | Complex connectors (However, Nevertheless, Consequently) |

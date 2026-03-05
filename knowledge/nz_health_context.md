@@ -32,6 +32,9 @@ NZ's primary secure clinical messaging network. Used for specialist referrals, l
 ### Medtech ALEX Intelligence Layer
 Medtech's API platform enabling third-party integrations. Enables gathering provider inbox results; a significant recent development for builders like ClinicPro. Recent API updates finally allow gathering provider inbox results. ALEX is an API/integration platform, not a clinical consultation UI; do not describe it as crashing during patient consultations.
 
+### Heidi Health
+Major NZ AI scribe vendor (heidihealth.com). Started with Scribe; now rolling out Evidence (evidence in workflow) and Comms. Not to be confused with Health NZ / Te Whatu Ora.
+
 ---
 
 ## Key NZ-Specific Policy and Infrastructure Context

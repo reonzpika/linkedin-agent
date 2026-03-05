@@ -1,7 +1,8 @@
 """
 Pick the best 6 targets from up to 30 scout targets for Golden Hour engagement.
 Reads engagement.json and plan.json; calls Claude (picker) to select 6 (mix of
-audience relevance and commentability); overwrites scout_targets in engagement.json.
+audience relevance and commentability); overwrites scout_targets in engagement.json
+and preserves the full list as scout_targets_all so the user can see other options later.
 Run from repo root after scout.py, before draft.py.
 """
 
@@ -99,6 +100,7 @@ Do not output any other text before or after the indices."""
         indices = list(range(min(6, len(candidates))))
 
     chosen = [candidates[i] for i in indices]
+    engagement["scout_targets_all"] = candidates
     engagement["scout_targets"] = chosen
     engagement["comments_list"] = []
     engagement_file.write_text(json.dumps(engagement, indent=2), encoding="utf-8")

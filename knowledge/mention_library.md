@@ -31,6 +31,9 @@
 - **Valentia Technologies** (Indici) - Cloud PMS challenger: https://nz.linkedin.com/company/valentia-technologies
 - **Orion Health** - NZ's largest health tech company: https://www.linkedin.com/company/orion-health
 - **bpacnz** - Clinical decision support: https://nz.linkedin.com/company/best-practice-inc
+- **Heidi Health** - https://www.linkedin.com/company/heidi-health
+  - When to mention: AI scribe market in NZ, Evidence/Comms rollout, or contrasting vendor-native AI (e.g. Medtech AI) vs third-party scribes
+  - AI scribe then Evidence + Comms; big in NZ (heidihealth.com)
 
 ---
 

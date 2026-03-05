@@ -113,6 +113,102 @@ def schedule_execution(session_id: str, execution_time: datetime) -> dict:
         return {"success": False, "task_id": "", "error": str(e)}
 
 
+def schedule_execution_with_flag(
+    session_id: str, execution_time: datetime, flag: str
+) -> dict:
+    """
+    Schedule execute_post.py with an extra CLI flag at execution_time.
+    Used for --main-post-only (Phase 2 of two-phase execute now).
+    Returns {success: bool, task_id: str, error: str, run_at: str (ISO)}. Never raises.
+    """
+    if execution_time.tzinfo is not None:
+        execution_time = execution_time.astimezone()
+    script_path = Path(__file__).resolve().parent.parent / "execute_post.py"
+    python_exe = sys.executable
+    system = platform.system()
+    run_at_iso = execution_time.isoformat()
+
+    try:
+        if system == "Windows":
+            task_name = f"LinkedInPostMain_{session_id.replace('-', '_')[:45]}"
+            date_str = execution_time.strftime("%d/%m/%Y")
+            time_str = execution_time.strftime("%H:%M")
+            cmd_str = f'"{python_exe}" "{script_path}" {session_id} {flag}'
+            cmd = [
+                "schtasks",
+                "/create",
+                "/tn",
+                task_name,
+                "/tr",
+                cmd_str,
+                "/sc",
+                "once",
+                "/sd",
+                date_str,
+                "/st",
+                time_str,
+                "/f",
+            ]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+            if result.returncode == 0:
+                return {
+                    "success": True,
+                    "task_id": task_name,
+                    "error": "",
+                    "run_at": run_at_iso,
+                }
+            return {
+                "success": False,
+                "task_id": "",
+                "error": result.stderr or result.stdout or "unknown",
+                "run_at": run_at_iso,
+            }
+
+        if system in ("Darwin", "Linux"):
+            time_str = execution_time.strftime("%H:%M %Y-%m-%d")
+            cmd = f'echo "{python_exe} {script_path} {session_id} {flag}" | at {time_str}'
+            result = subprocess.run(
+                cmd, shell=True, capture_output=True, text=True, timeout=10
+            )
+            if result.returncode == 0:
+                job_id = result.stderr.split()[-1] if result.stderr else "unknown"
+                return {
+                    "success": True,
+                    "task_id": job_id,
+                    "error": "",
+                    "run_at": run_at_iso,
+                }
+            return {
+                "success": False,
+                "task_id": "",
+                "error": result.stderr or result.stdout or "unknown",
+                "run_at": run_at_iso,
+            }
+
+        return {
+            "success": False,
+            "task_id": "",
+            "error": f"Unsupported OS: {system}",
+            "run_at": run_at_iso,
+        }
+    except subprocess.TimeoutExpired:
+        return {"success": False, "task_id": "", "error": "scheduler timeout", "run_at": run_at_iso}
+    except Exception as e:
+        return {"success": False, "task_id": "", "error": str(e), "run_at": run_at_iso}
+
+
+def schedule_main_post_in_minutes(
+    session_id: str, delay_minutes: int = 20
+) -> dict:
+    """
+    Schedule execute_post.py --main-post-only to run in delay_minutes.
+    Used for Phase 2 of two-phase "execute now" (comments posted, main post in 20 min).
+    Returns {success: bool, task_id: str, error: str, run_at: str (ISO)}.
+    """
+    run_at = datetime.now().astimezone() + timedelta(minutes=delay_minutes)
+    return schedule_execution_with_flag(session_id, run_at, "--main-post-only")
+
+
 def schedule_execution_auto_slot(session_id: str) -> dict:
     """
     Schedule execute_post.py for next available Tue/Thu 8am NZST slot.

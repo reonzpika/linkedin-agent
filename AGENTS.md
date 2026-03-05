@@ -50,7 +50,7 @@ Per-run handoff lives under `outputs/<session_id>/` (session_id = `YYYY-MM-DD_<s
 | `plan.json` | `scripts/plan_from_url.py` then user edit in chat | `plan` (text), `pillar`, `angle`, `summary_from_url` (if URL given) |
 | `research.md` | `scripts/research.py` | Research summary (markdown) |
 | `research_meta.json` | `scripts/research.py` | `target_urls`, `pillar` |
-| `engagement.json` | `scripts/scout.py` (targets), optionally `scripts/pick_targets.py` (reduce to 6), then `scripts/draft.py` (comments) | `scout_targets`, `comments_list` |
+| `engagement.json` | `scripts/scout.py` (targets), optionally `scripts/pick_targets.py` (reduce to 6, preserves `scout_targets_all`), then `scripts/draft.py` (comments) | `scout_targets` (6 for draft), `scout_targets_all` (full list if pick_targets ran), `comments_list` |
 | `draft_final.md` | `scripts/draft.py` | Post body only |
 | `draft_meta.json` | `scripts/draft.py` | `first_comment`, `hashtags`, `suggested_mentions` |
 | `session_state.json` | Assembly step (skill or `scripts/assemble_session_state.py`) | Dict for executor: `scout_targets`, `comments_list`, `post_draft`, `first_comment` |
@@ -119,8 +119,8 @@ The human (Dr Ryo) interacts with this system only through chat. Every script ou
 
 - **Plan**: After `plan_from_url.py`, present plan; user approves or edits plan.json. Do not run research until approved.
 - **Research**: After `research.py`, present research summary; user may approve or skip to scout/draft.
-- **Draft**: After `draft.py`, present post + hashtags + first comment + 6 Golden Hour comments; user approves, requests edits (skill updates files and shows diff), or asks to "Regenerate" (skill re-runs draft with `--revision-feedback`).
-- **Scheduling**: After draft approval, skill runs assemble then schedule; user sees confirmation.
+- **Draft**: After `draft.py`, present post + hashtags + first comment + 6 Golden Hour comments; user approves, requests edits (skill updates files and shows diff), or asks to "Regenerate" (skill re-runs draft with `--revision-feedback`). **Draft approval is mandatory:** never run `assemble_session_state.py` or `execute_post.py` until the user has explicitly approved the draft in chat (e.g. "Approve", "go ahead", "execute now"). Even if the plan says "execute now", that means after approval; do not skip the approval step.
+- **Scheduling**: After draft approval, skill runs assemble then schedule (or execute now if requested); user sees confirmation.
 
 ### Autonomous (no approval required)
 

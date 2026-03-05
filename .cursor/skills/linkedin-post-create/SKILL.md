@@ -79,8 +79,8 @@ Approve this plan to continue to research, or paste your edits (I'll update plan
 ### Phase 4: Scout and draft, then review
 
 1. Run: `python scripts/scout.py --session-dir outputs/<session_id>` (from repo root). If Scout finds fewer than 6 targets, mention it in chat and still proceed.
-2. If Scout found more than 6 targets, run: `python scripts/pick_targets.py --session-dir outputs/<session_id>`. This picks the best 6 for Golden Hour and overwrites scout_targets in engagement.json.
-3. Run: `python scripts/draft.py --session-dir outputs/<session_id>`. If the user had requested "Regenerate" with feedback, run with `--revision-feedback "<text>"` instead.
+2. **If Scout found more than 6 targets:** Read `engagement.json` and present the **full list** in chat (numbered: name, short snippet, post_url). Say: "Scout found N targets above. Reply 'pick 6' to run the picker, or tell me which 6 you want (e.g. by index)." **Do not run pick_targets.py until the user has replied.** After the user confirms (e.g. "pick 6" or "use indices 0, 2, 5, 7, 10, 12"), run: `python scripts/pick_targets.py --session-dir outputs/<session_id>`. If the user specified indices, you may need to set scout_targets to those entries and skip pick_targets, or document that pick_targets is for "pick 6" and manual choice requires editing engagement.json.
+3. Run: `python scripts/draft.py --session-dir outputs/<session_id>` (from repo root). If the user had requested "Regenerate" with feedback, run with `--revision-feedback "<text>"` instead.
 4. Read from the session folder: `draft_final.md`, `draft_meta.json`, `engagement.json`. Format review in chat:
 ```
 📝 Draft ready for review
@@ -104,21 +104,24 @@ GOLDEN HOUR COMMENTS (6):
 2. ...
 
 What would you like to do?
-- "Approve" to schedule
+- "Approve" to schedule or execute (per plan)
 - Request specific changes (I'll edit and show diff)
 - "Regenerate" to run Architect again
+- "Show other targets" to see the full scout list (scout_targets_all in engagement.json) and pick a different 6, then re-run draft for new comments
 ```
 
-5. Handle user response:
-   - **Approve:** Move to Phase 5 (scheduling).
+5. **STOP and wait for user response.** Do **not** run Phase 5 (assemble, schedule, or execute) until the user has explicitly approved in chat (e.g. "Approve", "yes", "go ahead", "schedule it", "execute now"). If the plan says "execute now", that means after approval the user wants immediate execution; it does **not** mean you may skip this approval step.
+6. Handle user response:
+   - **Approve:** Move to Phase 5 (assembly and scheduling or execute now, per user/plan).
    - **Edit request:** Apply changes to `draft_final.md`, `draft_meta.json`, and/or `engagement.json`, show diff, ask "Approve these changes?"
    - **Regenerate:** Re-run draft script with `--revision-feedback "<user feedback>"`, then return to step 3 (show draft again).
+   - **Show other targets:** If `engagement.json` has `scout_targets_all`, present that full list (numbered) in chat and ask which 6 indices to use. Update `scout_targets` to those 6 entries, then re-run `draft.py` to generate new comments for the new 6; return to step 4 (show draft again).
 
 ---
 
 ### Phase 5: Assembly and scheduling
 
-After approval:
+**Only after the user has explicitly approved the draft in chat:**
 
 1. **Assemble session state:** Run `python scripts/assemble_session_state.py --session-dir outputs/<session_id>` (from repo root). This writes `session_state.json` so `execute_post.py` can run later. If the script fails, show the error and stop.
 
