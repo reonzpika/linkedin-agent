@@ -99,7 +99,8 @@ def get_browser_context():
             print(f"Login check failed: {e}")
         except UnicodeEncodeError:
             print("Login check failed (message contains non-ASCII characters)")
-    finally:
-        page.close()
+    # Do not close the page: leave it open so callers can reuse context.pages[0].
+    # Closing the only page causes "Failed to open a new tab" on Windows when
+    # scrape_personal_feed (or others) later call context.new_page().
 
     return context

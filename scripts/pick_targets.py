@@ -1,9 +1,8 @@
 """
-Pick the best 6 targets from up to 30 scout targets for Golden Hour engagement.
-Reads engagement.json and plan.json; calls Claude (picker) to select 6 (mix of
-audience relevance and commentability); overwrites scout_targets in engagement.json
-and preserves the full list as scout_targets_all so the user can see other options later.
-Run from repo root after scout.py, before draft.py.
+Pick the best 6 targets from scout output for Golden Hour engagement.
+When scout_targets_pinned is present, one slot is reserved: pick (6 - len(pinned)) from feed.
+Reads engagement.json and plan.json; calls Claude (picker); overwrites scout_targets,
+preserves scout_targets_all (feed only). Run from repo root after scout.py, before draft.py.
 """
 
 import argparse
@@ -50,9 +49,23 @@ def main() -> int:
 
     engagement = json.loads(engagement_file.read_text(encoding="utf-8"))
     candidates = engagement.get("scout_targets") or []
+    pinned = engagement.get("scout_targets_pinned") or []
+    need_to_pick = 6 - len(pinned)
 
-    if len(candidates) <= 6:
-        print(f"Only {len(candidates)} targets; no need to pick. Leaving as-is.")
+    if need_to_pick <= 0:
+        engagement["scout_targets"] = pinned[:6]
+        engagement["comments_list"] = []
+        engagement_file.write_text(json.dumps(engagement, indent=2), encoding="utf-8")
+        print("Only pinned targets; no feed pick needed. Wrote engagement.json.")
+        return 0
+
+    if len(candidates) <= need_to_pick:
+        chosen = candidates + pinned
+        engagement["scout_targets_all"] = candidates
+        engagement["scout_targets"] = chosen[:6]
+        engagement["comments_list"] = []
+        engagement_file.write_text(json.dumps(engagement, indent=2), encoding="utf-8")
+        print(f"Only {len(candidates)} feed targets; using all + {len(pinned)} pinned. Wrote engagement.json.")
         return 0
 
     plan_file = session_dir / "plan.json"
@@ -64,26 +77,34 @@ def main() -> int:
 
     from agents._llm import invoke
 
-    system = """You are the picker for a LinkedIn Golden Hour workflow. You receive a list of candidate posts (author name, snippet, post_url) and must choose exactly 6 that are best for "warming up" the algorithm before the user posts their own content.
+    system = """You are the picker for a LinkedIn Golden Hour workflow. You receive a list of candidate posts and must choose exactly N that are best for "warming up" the algorithm before the user posts their own content.
 
-Selection criteria (mix of both):
-1. Audience relevance: posts from or relevant to the user's audience (NZ primary care, GPs, practice managers, health tech).
-2. Commentability: posts that have enough substance in the snippet that we can write a genuine, substantive comment (reply or observation) that references something specific in their post. Prefer posts with non-empty, meaningful snippets.
+Selection criteria (mix of all):
+1. Topic relevance: when the post topic/angle is specific, prefer candidates whose content relates to that topic when possible.
+2. Audience relevance: posts from or relevant to the user's audience (NZ primary care, GPs, practice managers, health tech).
+3. Commentability: posts with enough substance in the snippet that we can write a genuine, substantive comment. Prefer non-empty, meaningful snippets.
+4. Recency/activity: when posted_date is provided, you may favour more recent posts as a proxy for an active account.
+5. Engagement: when reaction_count or comment_count are provided, prefer posts with higher engagement (more likely to get a reply).
 
-Output format: reply with exactly 6 integers on one line, separated by spaces: the 0-based indices of the 6 chosen candidates in the order you want them used (comment 1 for first index, etc.). Example: 0 3 5 7 12 18
+Output format: reply with exactly N integers on one line, separated by spaces: the 0-based indices of the chosen candidates in the order you want them used. Example: 0 3 5 7 12
 Do not output any other text before or after the indices."""
 
     user_parts = [
         f"Topic/context for our post: {topic}",
         f"Pillar: {pillar}",
+        f"Choose exactly {need_to_pick} candidates (one slot reserved for pinned).",
         "",
-        "Candidates (index, name, snippet, post_url):",
+        "Candidates (index, name, snippet, post_url, posted_date, engagement):",
     ]
     for i, t in enumerate(candidates):
         name = (t.get("name") or "").strip() or "(no name)"
         snippet = (t.get("snippet") or t.get("rationale") or "").strip()[:300]
         url = (t.get("post_url") or t.get("url") or "").strip()
-        user_parts.append(f"{i}: name={name} snippet={snippet} url={url}")
+        posted = (t.get("posted_date") or "").strip() or ""
+        engagement_str = ""
+        if t.get("reaction_count") is not None or t.get("comment_count") is not None:
+            engagement_str = f" reactions={t.get('reaction_count', '')} comments={t.get('comment_count', '')}"
+        user_parts.append(f"{i}: name={name} snippet={snippet} url={url} posted_date={posted}{engagement_str}")
     user = "\n".join(user_parts)
 
     out = invoke("picker", system, user)
@@ -92,19 +113,20 @@ Do not output any other text before or after the indices."""
         idx = int(match.group(1))
         if 0 <= idx < len(candidates) and idx not in indices:
             indices.append(idx)
-        if len(indices) >= 6:
+        if len(indices) >= need_to_pick:
             break
-    indices = indices[:6]
+    indices = indices[:need_to_pick]
 
-    if len(indices) < 6:
-        indices = list(range(min(6, len(candidates))))
+    if len(indices) < need_to_pick:
+        indices = list(range(min(need_to_pick, len(candidates))))
 
-    chosen = [candidates[i] for i in indices]
+    chosen_feed = [candidates[i] for i in indices]
+    chosen = chosen_feed + pinned
     engagement["scout_targets_all"] = candidates
-    engagement["scout_targets"] = chosen
+    engagement["scout_targets"] = chosen[:6]
     engagement["comments_list"] = []
     engagement_file.write_text(json.dumps(engagement, indent=2), encoding="utf-8")
-    print(f"Picked 6 targets (indices {indices}). Wrote engagement.json.")
+    print(f"Picked {need_to_pick} from feed (indices {indices}) + {len(pinned)} pinned. Wrote engagement.json.")
     return 0
 
 

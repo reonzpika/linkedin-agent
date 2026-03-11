@@ -49,6 +49,8 @@ ClinicPro is evidence of this positioning, not the whole story. Posts that only 
 - Every paragraph should have at least one sentence under 12 words
 - No sentence fragments (each sentence must have subject + verb)
 
+**Readability (prioritise):** We prioritise readability so posts hold attention and support dwell time (algorithm signal). Use bullet points (•) for lists of distinct points or examples. Keep paragraphs to 2-4 sentences. One idea per paragraph.
+
 **Readability test:**
 - Read it aloud - if you run out of breath, the sentence is too long
 - If you need to re-read a sentence to understand it, rewrite it

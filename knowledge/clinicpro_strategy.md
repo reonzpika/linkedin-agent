@@ -1,7 +1,9 @@
 # ClinicPro LinkedIn Strategy (Updated)
 **Version:** 2.0  
 **Date:** February 2026  
-**Context:** Dr Ryo Eguchi, practising Auckland GP and ClinicPro founder. Small network (136 connections), pre-R&D grant decision, pivoting toward admin tools.
+**Context:** Dr Ryo Eguchi, practising Auckland GP and ClinicPro founder. Small network (connection count to be verified with Dr Ryo before next session). Pre-R&D grant decision, pivoting toward admin tools.
+
+**Note:** Verify current connection count before next session.
 
 ---
 
@@ -18,17 +20,17 @@ The strategy acknowledges current constraints (small network, limited posting hi
 ## The Honest Starting Point
 
 **Current state:**
-- 136 connections (small but growing)
+- Connection count: verify with Dr Ryo before next session (previously 136; small but growing)
 - 155 followers
 - 241 post impressions in past 7 days
 - Two recent posts with different formats (workflow diagram, policy commentary)
 - Profile needs updating to match strategic pivot toward admin tools
 
 **What this means:**
-Posts currently reach ~40-90 people organically. That won't change through better content alone; it changes through building a relevant, engaged network first. The algorithm tests posts on a small segment of your network in the first 60 minutes. If that segment doesn't engage, the post dies. With 136 connections, if only 20 are active and relevant, the algorithm has very little signal to work with.
+Posts currently reach ~40-90 people organically. That won't change through better content alone; it changes through building a relevant, engaged network first. The algorithm tests posts on a small segment of your network in the first 60 minutes. If that segment doesn't engage, the post dies. With a small connection base (verify current count with Dr Ryo before next session), if only 20 are active and relevant, the algorithm has very little signal to work with.
 
 **The path forward:**
-Grow network while posting, not before. Combine strategic commenting (10-15 minutes around each post) with weekly posting cadence. Network growth and content quality work together; neither alone is sufficient.
+Grow network while posting, not before. Combine strategic commenting (10-15 minutes around each post) with 3x per week posting cadence (Tuesday, Wednesday, Thursday at 8-10am NZST). Network growth and content quality work together; neither alone is sufficient.
 
 ---
 
@@ -179,13 +181,25 @@ The LinkedIn algorithm rewards consistent topic focus. Posting across three defi
 
 ## Content Format and Structure
 
-### Default format: Text posts
+### Priority formats: Text, document carousels, and polls
 
-**Why text:**
+**Text posts (core):**
 - Fastest to produce
 - Age well (no broken images or outdated data)
 - Force a real point of view
 - LinkedIn algorithm doesn't penalise text posts
+
+**Document carousels (recommended):**
+- 8-10 slides optimal
+- Highest dwell time of major formats; drives saves
+- Use for step-by-step breakdowns, comparison tables, tutorial-style content
+
+**Polls (recommended):**
+- ~1.4% of LinkedIn content; algorithm surfaces them
+- ~1.64x reach multiplier vs standard posts
+- Vote-driven viral loop; strong engagement signal
+
+**Single-image posts:** Current algorithm research shows single-image posts now underperform text-only. Prefer text or carousel over single-image when possible.
 
 **Structure that works (based on 2025 algorithm research):**
 1. **Strong hook (first 1-2 sentences):** Grab attention with specific observation or bold statement. The first two lines determine whether someone clicks "see more."
@@ -216,38 +230,15 @@ Until then, it's manual workarounds. Every referral.
 - Ends with reality check, not question
 - 140 words (scannable, holds attention)
 
-### Occasional format: Single image with text
+### Single-image posts: use sparingly
 
-**When to use:**
-- Workflow comparisons (old vs new)
-- Before/after visualisations
-- Data visualisations
-- Process diagrams
+Single-image posts now underperform text-only in the algorithm. Use only when the visual genuinely communicates something text cannot (e.g. workflow comparison, before/after). Your Referral Images workflow post was effective; for net reach, prefer text or carousel. Keep images simple, readable on mobile, with short caption (100-150 words).
 
-**Your Referral Images workflow post is a perfect example.** Clear visual comparison, minimal text, makes the point immediately.
+### Carousels and polls: recommended alongside text
 
-**How to create:**
-- Keep images simple (no walls of text on image)
-- Use consistent colour scheme (blues/whites, medical + modern aesthetic)
-- Make sure text is readable on mobile
-- Post the image, add short caption (100-150 words)
+**Carousels (8-10 slides):** Highest dwell time; drives saves. Use for step-by-step breakdowns, comparison tables, tutorial-style content. Algorithm tracks consumption rate; ensure each slide earns the swipe (no filler).
 
-**Don't use images just for engagement.** Only use when visual genuinely communicates something text can't.
-
-### Occasional format: Carousel posts (multi-image swipes)
-
-**When to use sparingly:**
-- Step-by-step breakdowns that genuinely need multiple frames
-- Comparison tables
-- Tutorial-style content
-
-**Why to limit carousels:**
-- Time-intensive to produce well
-- A weak carousel is worse than a strong text post
-- Algorithm now tracks "consumption rate"; if people swipe to slide 2 and bail, that's a negative signal
-- Better to save carousels for high-value content (quarterly roundup, major announcement)
-
-**Current recommendation:** Stick with text + occasional single image. Add carousels only when content genuinely requires that format.
+**Polls:** ~1.4% of LinkedIn content; ~1.64x reach multiplier; vote-driven viral loop. Use for quick opinion or "which resonates?" style engagement from target audience.
 
 ### Video: Not a priority
 
@@ -261,25 +252,18 @@ Until then, it's manual workarounds. Every referral.
 
 ## Posting Cadence and Timing
 
-### Frequency: Once per week
+### Frequency: Three times per week
 
-**Why once per week:**
-- Sustainable alongside clinical work and product development
-- Quality of one strong post per week beats two rushed posts
-- Small network can't support higher frequency without splitting engagement
-- Consistent enough for algorithm to recognise topic authority
+**Recommended cadence (2026 algorithm research):**
+- **3x per week** (Tuesday, Wednesday, Thursday at 8-10am NZST) is the recommended cadence for growth
+- Sustainable alongside clinical work and product development when batched
+- Algorithm rewards consistent topic authority; three strong posts per week build recognition
+- Concentrated engagement in the first 60 minutes still applies to each post
 
 **Research findings:**
-- Posting 2x weekly to small network splits engagement and kills both posts
-- Algorithm needs concentrated engagement in first 60 minutes
-- Better to build network first, then increase frequency
-- Once network exceeds 300 relevant connections, reassess frequency
-
-**When to increase frequency:**
-- After 500+ relevant connections
-- After posts consistently generate 500+ impressions in first hour
-- After inbound DMs become regular occurrence
-- Not before
+- Algorithm needs concentrated engagement in first 60 minutes per post
+- Tuesday, Wednesday, Thursday 8-10am NZST align with when GPs and practice managers are on the platform
+- Consistency on fixed days matters more than volume spikes
 
 ### Best posting times for NZ audience:
 
@@ -321,13 +305,13 @@ LinkedIn tests each post on a small sample of your network in the first 60 minut
 8:30am - Check back, respond to any new comments  
 
 **Why this matters:**
-With 136 connections, algorithm shows post to maybe 15-20 people initially. If 3-4 engage quickly, algorithm expands. If zero engage, post dies. Your active participation in first hour signals to algorithm that post is worth amplifying.
+With your current connection count (verify with Dr Ryo before next session), algorithm shows post to maybe 15-20 people initially. If 3-4 engage quickly, algorithm expands. If zero engage, post dies. Your active participation in first hour signals to algorithm that post is worth amplifying.
 
 ---
 
 ## Network Building Strategy
 
-**Current state:** 136 connections, many not relevant to current goals.
+**Current state:** Verify connection count with Dr Ryo before next session (previously 136); many may not be relevant to current goals.
 
 **Target state:** 500+ relevant connections (GPs, practice managers, PHO staff, health tech founders, digital health investors).
 
@@ -365,7 +349,7 @@ Hi [Name], saw your post about [specific topic]; your point about [something spe
 
 **Goal:** 5-10 new relevant connections per week.
 
-**Calculation:** 10 new connections/week x 26 weeks = 260 new connections. Combined with existing 136 = ~400 connections in 6 months. Continue for another 3 months to reach 500+.
+**Calculation:** 10 new connections/week x 26 weeks = 260 new connections. Combined with existing base (verify current count with Dr Ryo) = path to ~400 connections in 6 months. Continue for another 3 months to reach 500+.
 
 ---
 
@@ -441,7 +425,6 @@ LinkedIn's 2025 algorithm actively penalises:
 - Open posts with product name or update
 - Ask open-ended questions about workflow problems (invites competitors)
 - Put links in post body (first comment only)
-- Post more than once per week until network is bigger
 - Use more than 4 hashtags
 - Tag people without genuine reason
 
@@ -457,7 +440,7 @@ LinkedIn's 2025 algorithm actively penalises:
 - DM inquiries
 
 ### Track monthly:
-- Total connections (currently 136)
+- Total connections (verify with Dr Ryo before next session)
 - Follower count (currently 155)
 - Engagement rate (comments + shares + meaningful reactions / impressions)
 - Source of new connections (are they from target audience?)
@@ -473,7 +456,7 @@ LinkedIn's 2025 algorithm actively penalises:
 **Green flags (continue current strategy):**
 - 5+ relevant connection requests per week
 - 2-3 meaningful comments per post
-- 200+ connections (up from 136)
+- 200+ connections (up from verified baseline)
 - 300+ impressions per post
 - At least one inbound DM from target audience
 
@@ -485,8 +468,8 @@ LinkedIn's 2025 algorithm actively penalises:
 
 ### Revise strategy when:
 
-**Trigger 1:** Active relevant connections exceed 300
-**Action:** Consider increasing posting frequency to 2x per week
+**Trigger 1:** Active relevant connections exceed 500
+**Action:** Continue 3x/week cadence; consider format mix (carousels, polls) if not already in rotation
 
 **Trigger 2:** Post breaks 500 impressions in first hour
 **Action:** Shift content mix toward more direct product posts, experiment with carousels and video
@@ -694,7 +677,7 @@ Until R&D grant decision is made:
 ### Pitfall 5: Inconsistent posting
 **Problem:** Post 3 times one week, nothing for 3 weeks, then 2 posts.  
 **Result:** Algorithm doesn't build topic authority, network doesn't know what to expect.  
-**Solution:** Once per week, same day/time, for 12 weeks minimum. Consistency matters more than volume.
+**Solution:** Three times per week (Tuesday, Wednesday, Thursday), same time (8-10am NZST), for 12 weeks minimum. Consistency matters more than volume.
 
 ### Pitfall 6: Wrong metrics focus
 **Problem:** Obsessing over likes and impressions instead of meaningful engagement.  

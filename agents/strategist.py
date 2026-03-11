@@ -68,12 +68,13 @@ def run(state: LinkedInContext) -> dict:
         if found:
             bait_in_comments.append(f"comment {i+1}: {found}")
 
-    # Check comment word counts (15-25 words target)
+    # Check comment word counts (15-25 words target per algorithm_sop and voice_profile)
+    GH_COMMENT_MAX_WORDS = 25
     long_comments = []
     for i, c in enumerate(comments_list):
-        word_count = len((c or "").split())
-        if word_count > 30:  # Allow some tolerance, but flag egregious violations
-            long_comments.append(f"comment {i+1}: {word_count} words (target: 15-25)")
+        c_word_count = len((c or "").split())
+        if c_word_count > GH_COMMENT_MAX_WORDS:
+            long_comments.append(f"comment {i+1}: {c_word_count} words (target: 15-25)")
 
     failures = []
     if word_count < 150 or word_count > 300:

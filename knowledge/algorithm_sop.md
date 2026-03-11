@@ -7,13 +7,25 @@
 
 ## Content Format and Structure
 
-### Default format: Text posts
+### Priority formats: Text, document carousels, and polls
 
-**Why text:**
+**Text posts (core):**
 - Fastest to produce
 - Age well (no broken images or outdated data)
 - Force a real point of view
 - LinkedIn algorithm doesn't penalise text posts
+
+**Document carousels (recommended):**
+- 8-10 slides optimal
+- Highest dwell time of major formats; drives saves
+- Use for step-by-step breakdowns, comparison tables, tutorial-style content
+
+**Polls (recommended):**
+- ~1.4% of LinkedIn content; algorithm surfaces them
+- ~1.64x reach multiplier vs standard posts
+- Vote-driven viral loop; strong engagement signal
+
+**Single-image posts:** Current algorithm research shows single-image posts now underperform text-only. Prefer text or carousel over single-image when possible.
 
 **Structure that works (based on 2025 algorithm research):**
 1. **Strong hook (first 1-2 sentences):** Grab attention with specific observation or bold statement. The first two lines determine whether someone clicks "see more."
@@ -21,7 +33,11 @@
 3. **Your take (1 paragraph):** What this means, why it matters, what needs to change.
 4. **No open-ended questions:** End with your conclusion, not "what do you think?"
 
-**Length:** 150-300 words optimal. Algorithm favours "dwell time" (how long people spend reading). Longer posts that keep people reading outperform short posts they scroll past.
+**Readability (prioritise):** The algorithm's Depth Score rewards dwell time (how long readers spend before scrolling). Prioritise readability so posts are easy to scan and keep people reading.
+- **Hook:** First ~140 characters must compel the "see more" click (linkedin-2026-playbook.md). Write the hook last if needed so it lands.
+- **Bullet points:** Use bullets (•) for lists of distinct points, examples, or takeaways. Bullets improve scannability and support dwell time.
+- **Paragraphs:** Keep paragraphs short (2-4 sentences). One idea per paragraph. Long blocks of text get skipped.
+- **Length:** 150-300 words optimal. Longer posts that keep people reading outperform short posts they scroll past only when structure is clear and scannable.
 
 **Example structure (Pillar 1 infrastructure post):**
 ```
@@ -48,29 +64,22 @@ Until then, it's manual workarounds. Every referral.
 
 ## Posting Cadence and Timing
 
-### Frequency: Once per week
+### Frequency: Three times per week
 
-**Why once per week:**
-- Sustainable alongside clinical work and product development
-- Quality of one strong post per week beats two rushed posts
-- Small network can't support higher frequency without splitting engagement
-- Consistent enough for algorithm to recognise topic authority
+**Recommended cadence (2026 algorithm research):**
+- **3x per week** (Tuesday, Wednesday, Thursday at 8-10am NZST) is the recommended cadence for growth
+- Sustainable alongside clinical work and product development when batched
+- Algorithm rewards consistent topic authority; three strong posts per week build recognition
+- Concentrated engagement in the first 60 minutes still applies to each post
 
 **Research findings:**
-- Posting 2x weekly to small network splits engagement and kills both posts
-- Algorithm needs concentrated engagement in first 60 minutes
-- Better to build network first, then increase frequency
-- Once network exceeds 300 relevant connections, reassess frequency
-
-**When to increase frequency:**
-- After 500+ relevant connections
-- After posts consistently generate 500+ impressions in first hour
-- After inbound DMs become regular occurrence
-- Not before
+- Algorithm needs concentrated engagement in first 60 minutes per post
+- Tuesday, Wednesday, Thursday 8-10am NZST align with when GPs and practice managers are on the platform
+- Consistency on fixed days matters more than volume spikes
 
 ### Best posting times for NZ audience
 
-**Tuesday-Thursday, 8-10am NZST**
+**Tuesday, Wednesday, Thursday, 8-10am NZST**
 
 **Why:**
 - GPs check LinkedIn early morning before clinic or during breaks
@@ -108,7 +117,7 @@ LinkedIn tests each post on a small sample of your network in the first 60 minut
 8:30am - Check back, respond to any new comments  
 
 **Why this matters:**
-With 136 connections, algorithm shows post to maybe 15-20 people initially. If 3-4 engage quickly, algorithm expands. If zero engage, post dies. Your active participation in first hour signals to algorithm that post is worth amplifying.
+With your current connection count (verify with Dr Ryo before next session), algorithm shows post to maybe 15-20 people initially. If 3-4 engage quickly, algorithm expands. If zero engage, post dies. Your active participation in first hour signals to algorithm that post is worth amplifying.
 
 **Comments over 15 words carry 2.5x more algorithmic weight than shorter interactions.**
 
@@ -220,12 +229,11 @@ LinkedIn's 2025 algorithm actively penalises:
 - Open posts with product name or update
 - Ask open-ended questions about workflow problems (invites competitors)
 - Put links in post body (first comment only)
-- Post more than once per week until network is bigger
 - Use more than 4 hashtags
 - Tag people without genuine reason
 
 **Penalties to avoid:**
-- Posting more than once per week (splits engagement)
+- Posting with less than 12 hours between posts (too frequent in same day)
 - Posting and disappearing (kills algorithmic momentum)
 - Engagement pods (algorithm detects coordinated activity)
 - Overpromising features that do not exist

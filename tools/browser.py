@@ -83,12 +83,14 @@ def _parse_aria_label_name(aria_label: str) -> str:
     return label[:80] if label else ""
 
 
-def _extract_post(post: Any) -> dict[str, Any] | None:
+def _extract_post(post: Any, min_snippet_length: int | None = None) -> dict[str, Any] | None:
     """
     Extract {name, url, post_url, snippet, posted_date} from a single feed post locator.
     Uses data-urn for URL, aria-label for name (with fallbacks), and commentary/description for snippet.
-    Returns None if post URL cannot be determined or snippet is too short (below MIN_SNIPPET_LENGTH).
+    Returns None if post URL cannot be determined or snippet is too short.
+    min_snippet_length: if set, use this instead of MIN_SNIPPET_LENGTH (e.g. 20 for company pages).
     """
+    min_len = min_snippet_length if min_snippet_length is not None else MIN_SNIPPET_LENGTH
     try:
         # Post URL: build from container data-id / data-urn
         urn = (
@@ -156,10 +158,11 @@ def _extract_post(post: Any) -> dict[str, Any] | None:
 
         # Validate snippet length
         snippet_text = snippet.strip()
-        if len(snippet_text) < MIN_SNIPPET_LENGTH:
+        if len(snippet_text) < min_len:
             logger.debug(
-                "Skipping post (snippet too short): {} chars, name='{}', url={}",
+                "Skipping post (snippet too short): {} chars (min={}), name='{}', url={}",
                 len(snippet_text),
+                min_len,
                 (name[:30] if name else "None"),
                 post_url[:80] if post_url else "unknown",
             )
@@ -287,8 +290,10 @@ def scrape_personal_feed(context: Any, max_posts: int = 30) -> list[dict[str, An
     Navigate to LinkedIn personal feed, scrape recent posts.
     Scrolls until we have max_posts valid targets (after extraction and filtering).
     Returns list of {name, url, post_url, snippet, posted_date}.
+    Reuses context.pages[0] when present to avoid "Failed to open a new tab" on Windows.
     """
-    page = context.new_page()
+    had_page = len(context.pages) > 0
+    page = context.pages[0] if had_page else context.new_page()
     results: list[dict[str, Any]] = []
     seen_urls: set[str] = set()
 
@@ -301,7 +306,7 @@ def scrape_personal_feed(context: Any, max_posts: int = 30) -> list[dict[str, An
         _random_delay()
         dismiss_modal_if_present(page)
 
-        max_scroll_attempts = 100
+        max_scroll_attempts = 150
         scroll_count = 0
         stalled_count = 0
         prev_total_posts = 0
@@ -371,7 +376,7 @@ def scrape_personal_feed(context: Any, max_posts: int = 30) -> list[dict[str, An
                     scroll_count,
                     stalled_count,
                 )
-                if stalled_count >= 3:
+                if stalled_count >= 5:
                     logger.warning(
                         "Feed stalled at {} posts, stopping (have {} valid targets)",
                         total_posts,
@@ -403,7 +408,86 @@ def scrape_personal_feed(context: Any, max_posts: int = 30) -> list[dict[str, An
         logger.warning("scrape_personal_feed failed: {}", e)
         return []
     finally:
-        page.close()
+        # Only close if we created a new page; do not close the context's default page.
+        if not had_page:
+            page.close()
+
+
+def _filter_company_activity_posts(locators: list[Any]) -> list[Any]:
+    """
+    Keep only company-feed post locators with data-urn urn:li:activity: (exclude inAppPromotion).
+    Company pages use data-urn on the article/card, not data-id.
+    """
+    filtered: list[Any] = []
+    for loc in locators:
+        try:
+            urn = loc.get_attribute("data-urn") or ""
+            if urn and urn.startswith("urn:li:activity:") and "inAppPromotion" not in urn:
+                filtered.append(loc)
+        except Exception:
+            continue
+    return filtered
+
+
+def scrape_company_latest_post(
+    context: Any, company_posts_url: str
+) -> dict[str, Any] | None:
+    """
+    Navigate to a company's posts feed (e.g. /company/.../posts/?feedView=all),
+    find the first (latest) post, extract and return {name, post_url, snippet, posted_date}.
+    Returns None if navigation or extraction fails.
+    Company feed uses data-urn (not data-id) on role=article cards; first real post may be
+    preceded by inAppPromotion, so we filter those out.
+    """
+    had_page = len(context.pages) > 0
+    page = context.pages[0] if had_page else context.new_page()
+    try:
+        page.goto(
+            company_posts_url,
+            wait_until="domcontentloaded",
+            timeout=20000,
+        )
+        _random_delay()
+        dismiss_modal_if_present(page)
+        time.sleep(random.uniform(1.5, 3.0))
+
+        # Company feed uses data-urn on the card (not data-id); wait for activity posts
+        try:
+            page.wait_for_selector(
+                "[data-urn^='urn:li:activity:']",
+                timeout=15000,
+                state="visible",
+            )
+        except Exception as e:
+            logger.debug("scrape_company_latest_post: wait_for_selector {}", e)
+
+        raw = page.locator("[data-urn^='urn:li:activity:']").all()
+        filtered = _filter_company_activity_posts(raw)
+        if not filtered:
+            page.mouse.wheel(0, 600)
+            time.sleep(random.uniform(1.5, 2.5))
+            try:
+                page.wait_for_load_state("networkidle", timeout=8000)
+            except Exception:
+                pass
+            raw = page.locator("[data-urn^='urn:li:activity:']").all()
+            filtered = _filter_company_activity_posts(raw)
+        if filtered:
+            row = _extract_post(filtered[0], min_snippet_length=20)
+            if row:
+                return row
+            logger.debug(
+                "scrape_company_latest_post: extraction failed for first post (snippet too short or promoted)"
+            )
+
+        logger.warning("scrape_company_latest_post: no activity posts at {}", company_posts_url)
+        return None
+    except Exception as e:
+        logger.warning("scrape_company_latest_post failed: {}", e)
+        return None
+    finally:
+        if not had_page:
+            page.close()
 
 
 # DEPRECATED: Hashtag scraping disabled; using personal feed only.
@@ -601,6 +685,129 @@ def post_comment(context: Any, post_url: str, comment_text: str) -> dict[str, An
         return {"success": False, "error": str(e), "post_url": post_url}
     finally:
         page.close()
+
+
+def post_comment_on_company_latest(
+    context: Any, company_posts_url: str, comment_text: str
+) -> dict[str, Any]:
+    """
+    Navigate to company posts page, find the first (latest) post, click Comment, and post comment_text.
+    Used for pinned targets when the direct post URL does not work. Same comment flow as post_comment.
+    Returns {success, post_url} (post_url set to company_posts_url) or {success: False, error}.
+    """
+    had_page = len(context.pages) > 0
+    page = context.pages[0] if had_page else context.new_page()
+    try:
+        page.goto(company_posts_url, wait_until="domcontentloaded", timeout=20000)
+        _random_delay()
+        dismiss_modal_if_present(page)
+        time.sleep(random.uniform(1.5, 3.0))
+
+        raw = page.locator("[data-urn^='urn:li:activity:']").all()
+        filtered = _filter_company_activity_posts(raw)
+        if not filtered:
+            page.mouse.wheel(0, 600)
+            time.sleep(random.uniform(1.5, 2.5))
+            try:
+                page.wait_for_load_state("networkidle", timeout=8000)
+            except Exception:
+                pass
+            raw = page.locator("[data-urn^='urn:li:activity:']").all()
+            filtered = _filter_company_activity_posts(raw)
+        if not filtered:
+            return {
+                "success": False,
+                "error": "no activity posts on company page",
+                "post_url": company_posts_url,
+            }
+
+        first_post = filtered[0]
+        try:
+            comment_btn = (
+                first_post.get_by_role("button", name="Comment")
+                .or_(first_post.locator("button[aria-label='Comment']"))
+                .or_(first_post.locator("[data-finite-scroll-hotkey='c']"))
+                .first
+            )
+            if comment_btn.count() == 0:
+                return {
+                    "success": False,
+                    "error": "Comment button not found on first post",
+                    "post_url": company_posts_url,
+                }
+            comment_btn.click(timeout=5000)
+            logger.debug("Clicked Comment on company first post")
+        except Exception as e:
+            logger.debug("Open comment box on company post failed: {}", e)
+            return {
+                "success": False,
+                "error": f"Open comment box: {e}",
+                "post_url": company_posts_url,
+            }
+        _random_delay()
+        dismiss_modal_if_present(page)
+
+        try:
+            form = page.locator("form.comments-comment-box__form").first
+            form.wait_for(state="attached", timeout=10000)
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Comment form timeout: {e}",
+                "post_url": company_posts_url,
+            }
+        editor = (
+            form.locator(".ql-editor")
+            .or_(form.locator("div[contenteditable='true'][role='textbox']"))
+            .first
+        )
+        try:
+            editor.wait_for(state="visible", timeout=10000)
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Editor timeout: {e}",
+                "post_url": company_posts_url,
+            }
+        try:
+            editor.click()
+            time.sleep(0.5)
+            editor.fill(comment_text)
+            time.sleep(1)
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Fill failed: {e}",
+                "post_url": company_posts_url,
+            }
+        submit = (
+            form.locator("button.comments-comment-box__submit-button--cr")
+            .or_(form.locator("button:has-text('Comment')"))
+            .first
+        )
+        try:
+            submit.wait_for(state="visible", timeout=5000)
+            if not submit.is_enabled():
+                time.sleep(2)
+            submit.click(timeout=5000)
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Submit click failed: {e}",
+                "post_url": company_posts_url,
+            }
+        time.sleep(2)
+        return {"success": True, "post_url": company_posts_url}
+    except Exception as e:
+        logger.exception("post_comment_on_company_latest failed")
+        return {
+            "success": False,
+            "error": str(e),
+            "post_url": company_posts_url,
+        }
+    finally:
+        if not had_page:
+            page.close()
 
 
 def schedule_post(

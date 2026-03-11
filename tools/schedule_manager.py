@@ -30,17 +30,19 @@ def _slot_timestamp(dt: datetime) -> float:
     return dt.astimezone(pytz.UTC).timestamp()
 
 
+# Posting slots: (weekday, hour, minute) for main post time NZST. 0=Mon, 1=Tue, 2=Wed, 3=Thu.
+POST_SLOTS = [(1, 10, 0), (2, 12, 0), (3, 9, 0)]  # Tue 10am, Wed 12pm, Thu 9am
+EXECUTOR_MINUTES_BEFORE = 20
+
+
 def get_next_available_slot() -> datetime:
     """
-    Find next available Tuesday or Thursday at 8:00am NZST.
-
-    Strategy:
-    - Posts twice weekly: Tuesday and Thursday at 8am NZST
-    - Comments post at 7:40am (so executor runs at 7:40am)
-    - Check schedule registry to avoid conflicts
+    Find next available slot: Tue 10am, Wed 12pm, or Thu 9am NZST.
+    Returns the soonest slot that is in the future and not already scheduled.
+    Executor runs 20 minutes before main post (Golden Hour comments first).
 
     Returns:
-        datetime for 7:40am NZST (executor run time, 20min before main post)
+        datetime for executor run time (20 min before main post)
     """
     from tools.scheduler import get_next_slot_datetime
 
@@ -55,30 +57,24 @@ def get_next_available_slot() -> datetime:
         if p.get("status") == "scheduled"
     }
 
-    # Check next Tuesday 8am
-    next_tue = get_next_slot_datetime(1, 8, 0)  # 1 = Tuesday
-    tue_exec_time = next_tue.replace(hour=7, minute=40)  # Executor runs 20min early
+    candidates = []
+    for day, hour, minute in POST_SLOTS:
+        main_time = get_next_slot_datetime(day, hour, minute)
+        exec_time = main_time - timedelta(minutes=EXECUTOR_MINUTES_BEFORE)
+        if _slot_timestamp(exec_time) not in scheduled_ts and exec_time > now:
+            candidates.append(exec_time)
 
-    if _slot_timestamp(tue_exec_time) not in scheduled_ts and tue_exec_time > now:
-        return tue_exec_time
+    if not candidates:
+        # All three this week are taken or past; use next week's earliest
+        for day, hour, minute in POST_SLOTS:
+            main_time = get_next_slot_datetime(day, hour, minute) + timedelta(days=7)
+            exec_time = main_time - timedelta(minutes=EXECUTOR_MINUTES_BEFORE)
+            if _slot_timestamp(exec_time) not in scheduled_ts:
+                candidates.append(exec_time)
 
-    # Check next Thursday 8am
-    next_thu = get_next_slot_datetime(3, 8, 0)  # 3 = Thursday
-    thu_exec_time = next_thu.replace(hour=7, minute=40)
-
-    if _slot_timestamp(thu_exec_time) not in scheduled_ts and thu_exec_time > now:
-        return thu_exec_time
-
-    # Both this week's slots are taken or passed, check next week Tuesday
-    next_week_tue = next_tue + timedelta(days=7)
-    next_week_tue_exec = next_week_tue.replace(hour=7, minute=40)
-
-    if _slot_timestamp(next_week_tue_exec) not in scheduled_ts:
-        return next_week_tue_exec
-
-    # Fallback: next week Thursday (should never conflict unless heavily scheduled)
-    next_week_thu = next_thu + timedelta(days=7)
-    return next_week_thu.replace(hour=7, minute=40)
+    return min(candidates) if candidates else (
+        get_next_slot_datetime(1, 10, 0) - timedelta(minutes=EXECUTOR_MINUTES_BEFORE)
+    )
 
 
 def register_scheduled_post(session_id: str, scheduled_for: datetime) -> None:
@@ -100,18 +96,21 @@ def register_scheduled_post(session_id: str, scheduled_for: datetime) -> None:
 
     nz_tz = pytz.timezone("Pacific/Auckland")
     if existing:
+        main_post_time = scheduled_for + timedelta(minutes=EXECUTOR_MINUTES_BEFORE)
         for post in registry["scheduled_posts"]:
             if post.get("session_id") == session_id:
                 post["scheduled_for"] = scheduled_for.isoformat()
+                post["main_post_time"] = main_post_time.isoformat()
                 post["status"] = "scheduled"
                 post["updated_at"] = datetime.now(nz_tz).isoformat()
                 break
     else:
+        main_post_time = scheduled_for + timedelta(minutes=EXECUTOR_MINUTES_BEFORE)
         registry.setdefault("scheduled_posts", []).append(
             {
                 "session_id": session_id,
                 "scheduled_for": scheduled_for.isoformat(),
-                "main_post_time": scheduled_for.replace(hour=8, minute=0).isoformat(),
+                "main_post_time": main_post_time.isoformat(),
                 "status": "scheduled",
                 "created_at": datetime.now(nz_tz).isoformat(),
             }

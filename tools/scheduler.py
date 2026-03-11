@@ -18,7 +18,7 @@ def get_next_slot_datetime(
     Calculate next occurrence of day_of_week at hour:minute NZST.
 
     Args:
-        day_of_week: 0=Monday, 1=Tuesday, 3=Thursday, 6=Sunday
+        day_of_week: 0=Monday, 1=Tuesday, 2=Wednesday, 3=Thursday, 6=Sunday
         hour: Hour in 24h format (default: 8 for 8am)
         minute: Minute (default: 0)
 
@@ -211,7 +211,7 @@ def schedule_main_post_in_minutes(
 
 def schedule_execution_auto_slot(session_id: str) -> dict:
     """
-    Schedule execute_post.py for next available Tue/Thu 8am NZST slot.
+    Schedule execute_post.py for next available slot (Tue 10am, Wed 12pm, Thu 9am NZST).
     Automatically finds next available slot and registers in schedule registry.
 
     Args:
@@ -220,7 +220,11 @@ def schedule_execution_auto_slot(session_id: str) -> dict:
     Returns:
         {success: bool, task_id: str, scheduled_for: str (ISO), executor_runs_at: str (ISO), error: str}
     """
-    from tools.schedule_manager import get_next_available_slot, register_scheduled_post
+    from tools.schedule_manager import (
+        EXECUTOR_MINUTES_BEFORE,
+        get_next_available_slot,
+        register_scheduled_post,
+    )
 
     try:
         exec_time = get_next_available_slot()
@@ -228,7 +232,7 @@ def schedule_execution_auto_slot(session_id: str) -> dict:
         result = schedule_execution(session_id, exec_time)
 
         if result.get("success"):
-            main_post_time = exec_time.replace(hour=8, minute=0)
+            main_post_time = exec_time + timedelta(minutes=EXECUTOR_MINUTES_BEFORE)
             result["scheduled_for"] = main_post_time.isoformat()
             result["executor_runs_at"] = exec_time.isoformat()
 

@@ -1,7 +1,7 @@
 # AGENTS.md — ClinicPro LinkedIn Engine
 **Stewarded by:** Cursor IDE AI Agent  
 **Owner:** Dr Ryo Eguchi, ClinicPro  
-**Last updated:** 2026-03-01  
+**Last updated:** 2026-03-11  
 **Status:** Living document — update this file whenever the system improves
 
 ---
@@ -51,7 +51,7 @@ Per-run handoff lives under `outputs/<session_id>/` (session_id = `YYYY-MM-DD_<s
 | `plan.json` | `scripts/plan_from_url.py` then user edit in chat | `plan` (text), `pillar`, `angle`, `summary_from_url` (if URL given) |
 | `research.md` | `scripts/research.py` | Research summary (markdown) |
 | `research_meta.json` | `scripts/research.py` | `target_urls`, `pillar` |
-| `engagement.json` | `scripts/scout.py` (targets), optionally `scripts/pick_targets.py` (reduce to 6, preserves `scout_targets_all`), then `scripts/draft.py` (comments) | `scout_targets` (6 for draft), `scout_targets_all` (full list if pick_targets ran), `comments_list` |
+| `engagement.json` | `scripts/scout.py` (targets + optional `scout_targets_pinned`), optionally `scripts/pick_targets.py` (reduce to 6, preserves `scout_targets_all`), then `scripts/draft.py` (comments) | `scout_targets` (6 for draft), `scout_targets_pinned` (e.g. HINZ latest; each may have `company_posts_url` for executor to comment via company page), `scout_targets_all` (feed list if pick_targets ran), `comments_list` |
 | `draft_final.md` | `scripts/draft.py` | Post body only |
 | `draft_meta.json` | `scripts/draft.py` | `first_comment`, `hashtags`, `suggested_mentions` |
 | `session_state.json` | Assembly step (skill or `scripts/assemble_session_state.py`) | Dict for executor: `scout_targets`, `comments_list`, `post_draft`, `first_comment` |
@@ -78,8 +78,8 @@ Before execution, assembly builds `session_state.json` from the other session fi
 
 - `scripts/plan_from_url.py`: Reads input.json, optionally fetches URL; Claude (planner) produces plan.json.
 - `scripts/research.py`: Reads input + plan; runs Researcher agent; writes research.md, research_meta.json. On dehallucination, writes research_dehallucination.txt and exits non-zero.
-- `scripts/scout.py`: Runs Scout agent; writes engagement.json (scout_targets only, up to 30).
-- `scripts/pick_targets.py`: When scout_targets > 6, runs Picker (Claude) to choose best 6; overwrites scout_targets in engagement.json. Run after scout, before draft.
+- `scripts/scout.py`: Runs Scout agent; writes engagement.json with scout_targets (feed, up to 30) and scout_targets_pinned (e.g. HINZ latest from config/pinned_targets.json).
+- `scripts/pick_targets.py`: When feed targets > (6 - len(pinned)), runs Picker to choose that many from feed and appends pinned; overwrites scout_targets, preserves scout_targets_all (feed only). Run after scout, before draft.
 - `scripts/draft.py`: Runs Architect then Strategist; writes draft_final.md, draft_meta.json, updates engagement.json with comments_list. Optional `--revision-feedback` for regenerate pass.
 - `scripts/assemble_session_state.py`: Builds session_state.json from session files for execute_post.py.
 - `scripts/collect_analytics.py`: Navigates directly to the post's analytics page (`/posts/<slug>/analytics/`); scrapes impressions, reactions, comments, reposts, saves, sends, profile views, followers gained; checks Golden Hour target posts for replies to our pre-engagement comments (uses `session_state.json` for scout_targets and comments_list when present, else `engagement.json`); detects stale selectors via `selector_stale` flag; writes `analytics.json`. Requires headed browser mode and valid LinkedIn session. Run after `execution_results.json` is present.
@@ -93,23 +93,25 @@ Before execution, assembly builds `session_state.json` from the other session fi
 
 **Agent roles** (called by scripts with state dicts):
 
-- **Scout**: Discovers 6 Golden Hour targets (personal feed + hashtag fallback). Returns scout_targets only. Uses `tools/browser.scrape_personal_feed` and `scrape_hashtag_posts`.
+- **Scout**: Gathers feed targets (up to 30 via scrape_personal_feed) and optional pinned targets (e.g. HINZ latest via scrape_company_latest_post from config/pinned_targets.json). Pinned targets include `company_posts_url` so the executor can comment by opening the company page and clicking Comment on the first post. Returns scout_targets and scout_targets_pinned.
 - **Architect**: Drafts post_draft, first_comment, hashtags, 6 comments, suggested_mentions (0-2). Uses voice_profile, algorithm_sop, hashtag_library, mention_library; accepts optional revision_feedback in state. Golden Hour comments: 15-25 words, simple English, practice-grounded (see voice_profile and algorithm_sop).
 
 ### Posting Schedule
 
-**Cadence:** Twice weekly; Tuesday and Thursday at 8:00am NZST.
+**Cadence:** Three times per week: Tuesday 10am, Wednesday 12pm, Thursday 9am NZST (recommended for growth per 2026 algorithm research).
 
 **Golden Hour protocol:**
-- 7:40am NZST: Executor runs, posts 6 Golden Hour comments
+- Executor runs 20 minutes before main post (e.g. Tue 9:40am, Wed 11:40am, Thu 8:40am NZST): posts 6 Golden Hour comments (for targets with `company_posts_url` it navigates to the company posts page, finds the first post, and clicks Comment; otherwise it uses the target's post_url directly).
 - 20-minute wait (algorithm warm-up period)
-- 8:00am NZST: Main post and first comment published
+- 20 minutes later: Main post and first comment published (at slot time: Tue 10am, Wed 12pm, Thu 9am NZST)
 
 **Schedule management:**
 - `temporary/schedule_registry.json` tracks all scheduled posts
-- `get_next_available_slot()` finds the next free Tue/Thu 8am slot
+- `get_next_available_slot()` finds the next free slot (Tue 10am, Wed 12pm, Thu 9am NZST; soonest first)
 - Conflict detection prevents double-booking the same time slot
 - Schedule summary is shown in the skill after approval
+
+**Content formats (priority):** Text posts (core), document carousels (8-10 slides; highest dwell time, drives saves), and polls (~1.64x reach multiplier). Single-image posts underperform text-only; prefer text or carousel when possible.
 
 **Files:**
 - `tools/schedule_manager.py`: Schedule registry and slot calculation
@@ -217,7 +219,8 @@ If the proposed rule change would alter Dr Ryo's public positioning, contradict 
 |---|---|---|---|
 | `clinicpro_strategy.md` | Three content pillars, audience priorities, 90-day plan | Researcher, Architect | Cursor (strategic changes require approval) |
 | `voice_profile.md` | Insider GP voice rules, banned terms, structural rules, pre-R&D constraints | Architect, Strategist | Cursor (announce in chat first) |
-| `algorithm_sop.md` | 2025 LinkedIn algorithm rules, Golden Hour protocol, hashtag limits | Architect, Strategist, Scout | Cursor (announce in chat first) |
+| `algorithm_sop.md` | 2025 LinkedIn algorithm rules, post structure and readability (dwell time, bullets, short paragraphs), Golden Hour protocol, hashtag limits | Architect, Strategist, Scout | Cursor (announce in chat first) |
+| `linkedin-2026-playbook.md` | Data-driven 2026 playbook: Depth Score, dwell time, hook length (~140 chars), format performance. Informs algorithm_sop and voice_profile; not loaded by agents directly | Cursor (when updating structure/readability rules) | Cursor (announce in chat first) |
 | `nz_health_context.md` | NZ health system glossary, PHO structures, Medtech context | Researcher | Cursor (announce in chat first) |
 | `hashtag_library.md` | Approved hashtags and tagging rules | Architect | Cursor (announce in chat first) |
 | `mention_library.md` | NZ health sector mentions (suggest only when post discusses their work) | Architect | Cursor (announce in chat first) |

@@ -20,7 +20,7 @@ def executor_run(state: dict, context: Any) -> dict:
 
     Raises RuntimeError on failure.
     """
-    from tools.browser import post_comment, schedule_post
+    from tools.browser import post_comment, post_comment_on_company_latest, schedule_post
 
     scout_targets = (state.get("scout_targets") or [])[:6]
     comments_list = state.get("comments_list") or []
@@ -34,19 +34,33 @@ def executor_run(state: dict, context: Any) -> dict:
         if i >= len(comments_list):
             break
         comment_text = comments_list[i]
-        post_url = target.get("post_url") or target.get("url")
-        if post_url and comment_text:
-            r = post_comment(context, post_url, comment_text)
+        company_posts_url = target.get("company_posts_url")
+        if company_posts_url and comment_text:
+            r = post_comment_on_company_latest(context, company_posts_url, comment_text)
             results.append(
                 {
                     "type": "comment",
                     "target": target.get("name", ""),
-                    "post_url": post_url,
+                    "post_url": company_posts_url,
                     "result": r,
                 }
             )
             if not r.get("success"):
-                raise RuntimeError(r.get("error", "post_comment failed"))
+                raise RuntimeError(r.get("error", "post_comment_on_company_latest failed"))
+        else:
+            post_url = target.get("post_url") or target.get("url")
+            if post_url and comment_text:
+                r = post_comment(context, post_url, comment_text)
+                results.append(
+                    {
+                        "type": "comment",
+                        "target": target.get("name", ""),
+                        "post_url": post_url,
+                        "result": r,
+                    }
+                )
+                if not r.get("success"):
+                    raise RuntimeError(r.get("error", "post_comment failed"))
 
     # Phase 2: Wait 20 minutes for algorithm warm-up
     print("Posted 6 Golden Hour comments. Waiting 20 minutes before main post...")
@@ -67,7 +81,7 @@ def executor_run_comments_only(state: dict, context: Any) -> dict:
     Post 6 Golden Hour comments only. No sleep, no main post.
     Used for Phase 1 of two-phase "execute now" (Phase 2 scheduled via OS).
     """
-    from tools.browser import post_comment
+    from tools.browser import post_comment, post_comment_on_company_latest
 
     scout_targets = (state.get("scout_targets") or [])[:6]
     comments_list = state.get("comments_list") or []
@@ -76,19 +90,33 @@ def executor_run_comments_only(state: dict, context: Any) -> dict:
         if i >= len(comments_list):
             break
         comment_text = comments_list[i]
-        post_url = target.get("post_url") or target.get("url")
-        if post_url and comment_text:
-            r = post_comment(context, post_url, comment_text)
+        company_posts_url = target.get("company_posts_url")
+        if company_posts_url and comment_text:
+            r = post_comment_on_company_latest(context, company_posts_url, comment_text)
             results.append(
                 {
                     "type": "comment",
                     "target": target.get("name", ""),
-                    "post_url": post_url,
+                    "post_url": company_posts_url,
                     "result": r,
                 }
             )
             if not r.get("success"):
-                raise RuntimeError(r.get("error", "post_comment failed"))
+                raise RuntimeError(r.get("error", "post_comment_on_company_latest failed"))
+        else:
+            post_url = target.get("post_url") or target.get("url")
+            if post_url and comment_text:
+                r = post_comment(context, post_url, comment_text)
+                results.append(
+                    {
+                        "type": "comment",
+                        "target": target.get("name", ""),
+                        "post_url": post_url,
+                        "result": r,
+                    }
+                )
+                if not r.get("success"):
+                    raise RuntimeError(r.get("error", "post_comment failed"))
     return {"execution_results": results}
 
 

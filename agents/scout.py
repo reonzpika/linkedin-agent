@@ -1,6 +1,6 @@
 """
-LinkedIn Scout: Golden Hour target discovery via personal feed only.
-Returns up to 30 recent post targets for engagement; does NOT draft comments (Architect's job).
+LinkedIn Scout: Golden Hour target discovery via personal feed and pinned company posts.
+Returns up to 30 feed targets plus optional pinned targets (e.g. HINZ latest); does NOT draft comments (Architect's job).
 """
 
 import json
@@ -69,35 +69,37 @@ def _filter_spam_and_recruiters(posts: list[dict]) -> list[dict]:
 
 def run(state: LinkedInContext) -> dict:
     """
-    Find 6 recent posts from target audience for Golden Hour engagement.
-    Primary: scrape personal feed. Fallback: hashtag scraping if <6 found.
-    Returns scout_targets only (no comments).
+    Gather Golden Hour targets: personal feed (up to 30) plus pinned company latest posts.
+    Returns scout_targets (feed) and scout_targets_pinned (no comments).
     """
-    raw_input = state.get("raw_input") or ""
     recent_urls = _load_recent_engagement_urls()
 
-    from tools.browser import get_browser_context, scrape_personal_feed
+    from tools.browser import get_browser_context, scrape_personal_feed, scrape_company_latest_post
 
     ctx = get_browser_context()
     scout_targets: list[dict] = []
+    scout_targets_pinned: list[dict] = []
 
     try:
-        feed_posts = scrape_personal_feed(ctx, max_posts=30)
-
+        feed_posts = scrape_personal_feed(ctx, max_posts=60)
         filtered = _filter_spam_and_recruiters(feed_posts)
         filtered = [p for p in filtered if p.get("post_url") not in recent_urls]
-
-        if raw_input:
-            keywords = raw_input.lower().split()[:3]
-            relevant = []
-            for post in filtered:
-                snippet = (post.get("snippet") or "").lower()
-                if any(kw in snippet for kw in keywords):
-                    relevant.append(post)
-            if len(relevant) >= 3:
-                filtered = relevant
-
         scout_targets = filtered[:30]
+
+        # Pinned: e.g. HINZ latest post (config in config/pinned_targets.json)
+        try:
+            config_path = Path(__file__).resolve().parent.parent / "config" / "pinned_targets.json"
+            if config_path.exists():
+                pinned_cfg = json.loads(config_path.read_text(encoding="utf-8"))
+                for company_posts_url in (pinned_cfg.get("company_posts_urls") or [])[:5]:
+                    row = scrape_company_latest_post(ctx, company_posts_url)
+                    if row and row.get("post_url") and row["post_url"] not in recent_urls:
+                        if "snippet" in row and "rationale" not in row:
+                            row["rationale"] = row["snippet"]
+                        row["company_posts_url"] = company_posts_url
+                        scout_targets_pinned.append(row)
+        except Exception:
+            pass
     finally:
         ctx.close()
 
@@ -105,4 +107,4 @@ def run(state: LinkedInContext) -> dict:
         if "snippet" in target and "rationale" not in target:
             target["rationale"] = target["snippet"]
 
-    return {"scout_targets": scout_targets}
+    return {"scout_targets": scout_targets, "scout_targets_pinned": scout_targets_pinned}
