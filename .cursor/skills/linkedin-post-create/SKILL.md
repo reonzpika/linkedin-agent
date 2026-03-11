@@ -1,6 +1,6 @@
 ---
 name: linkedin-post-create
-description: Chat-only LinkedIn post creation. Prompt for topic/URL, run plan script, show plan for approval, then research, scout, draft; review in chat; assemble and schedule.
+description: Chat-only LinkedIn post creation. Prompt for topic/URL, run plan script, show plan for approval, then research, scout, draft; review in chat; assemble and schedule. Use when the user says "create linkedin post", "draft post about [topic]", or "write about [URL/topic]".
 ---
 
 # LinkedIn Post Creation Skill
@@ -113,7 +113,10 @@ What would you like to do?
 5. **STOP and wait for user response.** Do **not** run Phase 5 (assemble, schedule, or execute) until the user has explicitly approved in chat (e.g. "Approve", "yes", "go ahead", "schedule it", "execute now"). If the plan says "execute now", that means after approval the user wants immediate execution; it does **not** mean you may skip this approval step.
 6. Handle user response:
    - **Approve:** Move to Phase 5 (assembly and scheduling or execute now, per user/plan).
-   - **Edit request:** Apply changes to `draft_final.md`, `draft_meta.json`, and/or `engagement.json`, show diff, ask "Approve these changes?"
+   - **Edit request:** Apply changes as follows, then show a diff and ask "Approve these changes?":
+     - Post body edits: update `draft_final.md`.
+     - Hashtag, first comment, or mentions edits: update `draft_meta.json`.
+     - **Golden Hour comment edits (any of the 6 comments):** update `comments_list` in `engagement.json` with the final approved text. This is mandatory — `engagement.json` is the source of truth for what gets posted and what `collect_analytics.py` later matches against. Never leave a stale `comments_list` in `engagement.json` after an edit.
    - **Regenerate:** Re-run draft script with `--revision-feedback "<user feedback>"`, then return to step 3 (show draft again).
    - **Show other targets:** If `engagement.json` has `scout_targets_all`, present that full list (numbered) in chat and ask which 6 indices to use. Update `scout_targets` to those 6 entries, then re-run `draft.py` to generate new comments for the new 6; return to step 4 (show draft again).
 
@@ -157,6 +160,8 @@ What would you like to do?
    * Wait 20 minutes
    * 8:00am - Post main content + first comment
 ```
+
+7. Remind Dr Ryo: "Remember to run the 48-hour review after it publishes: 'review post [session_id]'"
 
 ---
 

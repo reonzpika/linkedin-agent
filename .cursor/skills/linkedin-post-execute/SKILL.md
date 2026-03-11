@@ -1,6 +1,6 @@
 ---
 name: linkedin-post-execute
-description: Executes Golden Hour posting for an approved session. Called by OS scheduler or manually with session_id.
+description: Executes Golden Hour posting for an approved session. Use when the user says "execute [session_id]" or when the OS scheduler runs execute_post.py for a scheduled session.
 ---
 
 # LinkedIn Post Execution Skill

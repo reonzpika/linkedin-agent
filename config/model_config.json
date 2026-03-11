@@ -22,5 +22,9 @@
   "picker": {
     "model": "claude-sonnet-4-6",
     "reason": "Select best 6 targets from 30 for engagement; mix of audience relevance and commentability"
+  },
+  "analyst": {
+    "model": "claude-sonnet-4-6",
+    "reason": "Scores post performance, identifies patterns, proposes knowledge and system updates"
   }
 }

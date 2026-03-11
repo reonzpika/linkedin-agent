@@ -1,6 +1,6 @@
 ---
 name: linkedin-agent-improve
-description: Applies Self-Improvement Protocol to update knowledge files from user feedback on draft quality, voice, structure, or agent behaviour.
+description: Applies Self-Improvement Protocol to update knowledge files from user feedback on draft quality, voice, structure, or agent behaviour. Use when the user gives corrective feedback on a draft (e.g. "Hook is too weak", "Sounds too marketing-y", "That's not how PHOs work", "Comments are too long") or on voice, structure, or facts.
 ---
 
 # LinkedIn Agent Self-Improvement Skill
@@ -47,7 +47,7 @@ Turn feedback into a testable constraint, not a vague instruction.
 
 **Weak:** "Be more specific in hooks."
 
-**Strong:** "Hook must open with a named NZ clinical system or workflow step (e.g. 'Medtech Cloud', 'HealthLink referral'); never with a rhetorical question or statistic without context."
+**Strong:** "Hook must open with a named NZ clinical system or workflow step and anchor to either (a) a specific named event (launch, rollout, policy change) or (b) a scoped national claim with a concrete number; never with a rhetorical question or statistic without context."
 
 ### 3. Update the file
 

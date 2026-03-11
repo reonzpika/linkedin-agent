@@ -137,6 +137,15 @@ With 136 connections, algorithm shows post to maybe 15-20 people initially. If 3
 - Two sentences: agree/react, then add context from your practice
 - Never: claim → elaborate → conclude (formal essay style)
 
+**Comment content rule:** Comments must not endorse or softly question the target post. Endorsements ("great point", "data backs this up") give the author nothing to respond to. Soft questions directed at a brand account ("curious how X handles Y") are treated as noise and generate no reply. Every comment must either (a) name a tension or limitation the original post didn't raise, or (b) extend the argument with a specific NZ primary care example. If a genuine contribution is not possible for a given target, replace the target rather than posting an endorsement.
+
+### Target selection priority
+
+- **Tier 1 (preferred):** NZ-based individuals or organisations active in health, health tech, or primary care policy — these audiences have direct context for Ryo's NZ perspective.
+- **Tier 2 (acceptable):** Global health tech accounts discussing problems where NZ has specific comparative evidence (small-country rollout, Medtech/PMS integration, PHO-scale deployment).
+- **Deprioritise:** US-headquartered brand accounts (Abridge, Nuance, Epic), personal disclosure posts, job postings, and academic research with no NZ application pathway.
+- If fewer than 4 Tier 1/2 targets are available from the personal feed, use hashtag fallback on #nzhealthtech, #nzprimarycare, or #generalpractice.
+
 ---
 
 ## Hashtag Strategy (2025 Algorithm)

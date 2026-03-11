@@ -24,6 +24,7 @@ This repo follows the WAT Framework. Before creating any new file, check whether
 |---|---|---|
 | Workflows | `/knowledge/` | Markdown SOPs, strategy, voice rules, NZ health context |
 | Agents | `/agents/` | Agent logic (researcher, scout, architect, strategist); called by scripts with state dicts |
+| Agents | `agents/analyst.py` | Scores post performance, identifies patterns, proposes knowledge updates and system updates |
 | Tools | `/tools/` | Browser, search, Crawl4AI, executor (Golden Hour posting) |
 | Scripts | `/scripts/` | plan_from_url, research, scout, pick_targets, draft, assemble_session_state; run from chat skill |
 | Outputs | `/outputs/` | Per-session folders (session folder contract above); never committed to git |
@@ -54,6 +55,9 @@ Per-run handoff lives under `outputs/<session_id>/` (session_id = `YYYY-MM-DD_<s
 | `draft_final.md` | `scripts/draft.py` | Post body only |
 | `draft_meta.json` | `scripts/draft.py` | `first_comment`, `hashtags`, `suggested_mentions` |
 | `session_state.json` | Assembly step (skill or `scripts/assemble_session_state.py`) | Dict for executor: `scout_targets`, `comments_list`, `post_draft`, `first_comment` |
+| `analytics.json` | `scripts/collect_analytics.py` | Raw 48hr metrics: impressions, members_reached, reactions, comments, reposts, saves, sends, profile views, followers gained; `golden_hour_replies` is `{"0": {"found": bool, "impressions": int, "likes": int, "replies": int}, ...}` for each of the 6 GH targets (per-comment data from the social bar). Uses `session_state.json` for scout_targets/comments_list when present, else `engagement.json`. |
+| `performance_report.md` | `scripts/analyse_performance.py` | Scored analysis with what worked/failed, full insights, and proposed updates |
+| `proposed_updates.json` | `scripts/analyse_performance.py` | Knowledge and system updates pending Dr Ryo's bulk approval |
 
 Before execution, assembly builds `session_state.json` from the other session files so `execute_post.py` can read one file and run the Golden Hour protocol.
 
@@ -67,6 +71,7 @@ Before execution, assembly builds `session_state.json` from the other session fi
 
 - **linkedin-post-create** (skill): Only way to start a new post. Prompts for topic/URL and optional pillar/angle; creates session folder and `input.json`; runs `scripts/plan_from_url.py` → present plan in chat → after approval, runs `scripts/research.py` → present research → runs `scripts/scout.py` then, if more than 6 targets, `scripts/pick_targets.py` then `scripts/draft.py` → present draft in chat → after approval, runs `scripts/assemble_session_state.py` then schedules via `tools/scheduler.schedule_execution_auto_slot`. Session state is written so `execute_post.py` can run later.
 - **execute_post.py**: Loads `outputs/[session_id]/session_state.json`, runs Golden Hour via `tools/executor.executor_run`. Called by OS scheduler or manually (linkedin-post-execute skill).
+- **linkedin-post-review** (skill): Triggered 48 hours after a post executes. Runs `scripts/collect_analytics.py` (Playwright scrapes live metrics from the post's dedicated analytics page) then `scripts/analyse_performance.py` (Analyst agent scores performance and proposes knowledge or system updates). Presents full report in chat with bulk approve/reject for all proposed changes.
 - **main.py** / **prepare_post.py**: Deprecated. Use the skill and scripts instead.
 
 **Scripts** (run from repo root with `--session-dir outputs/<session_id>`):
@@ -77,6 +82,8 @@ Before execution, assembly builds `session_state.json` from the other session fi
 - `scripts/pick_targets.py`: When scout_targets > 6, runs Picker (Claude) to choose best 6; overwrites scout_targets in engagement.json. Run after scout, before draft.
 - `scripts/draft.py`: Runs Architect then Strategist; writes draft_final.md, draft_meta.json, updates engagement.json with comments_list. Optional `--revision-feedback` for regenerate pass.
 - `scripts/assemble_session_state.py`: Builds session_state.json from session files for execute_post.py.
+- `scripts/collect_analytics.py`: Navigates directly to the post's analytics page (`/posts/<slug>/analytics/`); scrapes impressions, reactions, comments, reposts, saves, sends, profile views, followers gained; checks Golden Hour target posts for replies to our pre-engagement comments (uses `session_state.json` for scout_targets and comments_list when present, else `engagement.json`); detects stale selectors via `selector_stale` flag; writes `analytics.json`. Requires headed browser mode and valid LinkedIn session. Run after `execution_results.json` is present.
+- `scripts/analyse_performance.py`: Reads `analytics.json`, `draft_final.md`, `engagement.json`; runs Analyst agent; writes `performance_report.md` and `proposed_updates.json`; appends to `knowledge/performance_history.md` automatically including any system updates flagged.
 
 **Cursor skills** (in `.cursor/skills/`):
 
@@ -215,11 +222,57 @@ If the proposed rule change would alter Dr Ryo's public positioning, contradict 
 | `hashtag_library.md` | Approved hashtags and tagging rules | Architect | Cursor (announce in chat first) |
 | `mention_library.md` | NZ health sector mentions (suggest only when post discusses their work) | Architect | Cursor (announce in chat first) |
 | `dehallucination_triggers.md` | Sensitive topics requiring human clarification before drafting | Researcher, Architect | Cursor (announce in chat first) |
+| `performance_history.md` | Running log of post scores, metrics, and flagged system updates across all sessions. Includes Open and Implemented System Updates tables. | Analyst | Auto-appended after each review — no approval needed |
 
 **Rules:**
 - Agents may extend and append to knowledge files freely
 - Agents must never contradict an existing rule without flagging it as a strategic change
 - If a knowledge file conflicts with a user instruction given in chat, the chat instruction wins for the current session — then update the knowledge file to reflect the correction permanently
+
+---
+
+## Review and Improvement Protocol
+
+Every post triggers a review 48 hours after execution. The review workflow is semi-automated: Playwright collects metrics, the Analyst agent scores performance, Dr Ryo approves proposed updates in bulk.
+
+**Trigger:** `linkedin-post-review` skill (manually, or noted as a reminder in chat after `execute_post.py` completes).
+
+**What the Analyst scores:**
+- Impressions (benchmark: 50–200 acceptable, 200–500 good, 500+ excellent for this network size)
+- Engagement (saves weighted 5×, sends 3×, reposts 4×, substantive comments 2×, reactions baseline)
+- Golden Hour effectiveness (how many of 6 pre-engagement comments received replies)
+- Audience quality (did the right people engage)
+
+**Two types of proposed update:**
+
+Knowledge updates — rule changes to `voice_profile.md` or `algorithm_sop.md`. Applied immediately via str_replace after Dr Ryo approves.
+
+System updates — behavioural changes to scripts, agents, or skill files. Require Cursor agent mode with the full System Update Protocol (see below).
+
+**Update caps per review:**
+- Maximum 5 updates total
+- Maximum 2 system updates
+- Only proposed when overall score is poor or excellent
+
+**Pattern detection:**
+The Analyst reads `knowledge/performance_history.md` before each analysis to detect cross-post patterns. System updates are only raised when the same gap appears across at least 2 reviews, or when a single review shows a complete mechanism failure.
+
+---
+
+## System Update Protocol
+
+When a system update is approved by Dr Ryo, Cursor must follow this protocol without exception, regardless of how small the change appears:
+
+1. Read all files in the `read_before_planning` list from the update entry
+2. Read AGENTS.md, all files in `.cursor/skills/`, and all files in `agents/`
+3. Reason about which layer of the system is the best place to make the change; consider the skill file, agent prompts, scripts, and knowledge files
+4. Produce an implementation plan in chat stating which layer was chosen and why the other layers were ruled out
+5. Wait for Dr Ryo's explicit approval of the plan before touching any files
+6. Announce every file change before applying it
+7. After implementation, confirm the verification condition from the update entry was met
+8. Update `knowledge/performance_history.md`: move the row from Open System Updates to Implemented System Updates and record the session it was applied in
+
+This protocol exists because system changes affect all future posts. A change to scout targeting, scoring weights, or the analytics scraper has downstream effects across the entire workflow. The read-first step ensures Cursor understands the full system before choosing where to make the change.
 
 ---
 

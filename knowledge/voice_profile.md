@@ -139,10 +139,12 @@ ClinicPro is evidence of this positioning, not the whole story. Posts that only 
 - Must open with a named NZ clinical system, workflow step, or infrastructure component (e.g. "Medtech Cloud", "HealthLink referral", "12-month prescription queue")
 - Never with a rhetorical question or a statistic without clinical context
 - Never open with product name or product update (product-first hooks kill reach)
+- The hook must also anchor to one of: (a) a specific named event tied to that system — a product launch, rollout milestone, published finding, or policy change — referenced as current or recent context for NZ clinicians; or (b) a scoped national claim with a concrete number (count of clinicians, sites, or consultations). A named system without a named event or scoped claim does not meet the hook standard.
 
 **Body:**
 - Build to systemic point (1-2 paragraphs)
 - End with your take or conclusion, not an open-ended question
+- The final sentence of the "Your take" paragraph must be a claim a NZ GP could disagree with. Acceptable forms: a named limitation ("X is live but Y still isn't solved"), a direct challenge ("practices that haven't done Z will be behind"), or a named gap ("the outcome data for rural PHOs doesn't exist yet"). Not acceptable: a forward-looking summary ("this will change how GPs work"), a product endorsement, or a statement everyone already agrees with.
 - 150-300 words (hard limit)
 - No outbound links in post body; links go in first comment only
 
@@ -227,7 +229,7 @@ When discussing industry developments (e.g. Medtech ALEX Intelligence Layer), ac
 | Do | Don't |
 |----|-------|
 | First person always | Third-person ClinicPro references |
-| Specific clinical observation in hook | Rhetorical question or statistic without context |
+| Specific clinical observation in hook; anchor to named event or scoped national claim | Rhetorical question, statistic without context, or named system without event/claim |
 | End with your take | End with "what do you think?" or open question |
 | 150-300 words | Over 300 words |
 | Links in first comment only | Links in post body |
