@@ -3,10 +3,22 @@ Golden Hour posting protocol: post 6 pre-engagement comments then schedule main 
 Used by execute_post.py. State dict must have scout_targets, comments_list, post_draft, first_comment.
 """
 
+import json
 import time
+from pathlib import Path
 from typing import Any
 
 import pytz  # type: ignore[import-untyped]
+
+_DEBUG_LOG = Path(__file__).resolve().parent.parent / "debug-99fe3a.log"
+
+
+def _dbg(msg: str, hypothesis_id: str, data: dict | None = None) -> None:
+    try:
+        payload = {"sessionId": "99fe3a", "hypothesisId": hypothesis_id, "location": "executor.py:executor_run", "message": msg, "data": data or {}, "timestamp": time.time() * 1000}
+        _DEBUG_LOG.open("a", encoding="utf-8").write(json.dumps(payload) + "\n")
+    except Exception:
+        pass
 
 
 def executor_run(state: dict, context: Any) -> dict:
@@ -20,6 +32,9 @@ def executor_run(state: dict, context: Any) -> dict:
 
     Raises RuntimeError on failure.
     """
+    # #region agent log
+    _dbg("executor_run started", "B", {"scout_targets_len": len((state.get("scout_targets") or [])[:6]), "has_post_draft": bool((state.get("post_draft") or "").strip())})
+    # #endregion
     from tools.browser import post_comment, post_comment_on_company_latest, schedule_post
 
     scout_targets = (state.get("scout_targets") or [])[:6]
@@ -63,12 +78,21 @@ def executor_run(state: dict, context: Any) -> dict:
                     raise RuntimeError(r.get("error", "post_comment failed"))
 
     # Phase 2: Wait 20 minutes for algorithm warm-up
+    # #region agent log
+    _dbg("Phase 1 done, sleeping 20 min", "B", {"comments_count": len(results)})
+    # #endregion
     print("Posted 6 Golden Hour comments. Waiting 20 minutes before main post...")
     time.sleep(1200)  # 20 minutes = 1200 seconds
 
     # Phase 3: Post main content
+    # #region agent log
+    _dbg("Phase 2 done, calling schedule_post", "B", {})
+    # #endregion
     # Note: schedule_post currently posts immediately (LinkedIn native scheduling not implemented)
     r = schedule_post(context, post_draft, first_comment, scheduled_time="")
+    # #region agent log
+    _dbg("schedule_post returned", "C", {"success": r.get("success"), "error": r.get("error", "")[:200] if r.get("error") else ""})
+    # #endregion
     results.append({"type": "main_post", "result": r})
     if not r.get("success"):
         raise RuntimeError(r.get("error", "schedule_post failed"))

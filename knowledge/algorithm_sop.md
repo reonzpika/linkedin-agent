@@ -35,7 +35,8 @@
 
 **Readability (prioritise):** The algorithm's Depth Score rewards dwell time (how long readers spend before scrolling). Prioritise readability so posts are easy to scan and keep people reading.
 - **Hook:** First ~140 characters must compel the "see more" click (linkedin-2026-playbook.md). Write the hook last if needed so it lands.
-- **Bullet points:** Use bullets (•) for lists of distinct points, examples, or takeaways. Bullets improve scannability and support dwell time.
+- **Bullet points:** Use bullets (•) or emoji bullets (🔬 📬 📄 💊) for lists. No markdown; LinkedIn does not render it. Use plain text + emoji + line breaks.
+- **Section structure:** Use "1/" "2/" "3/" labels and ——— dividers between major sections so posts scan like native LinkedIn thought-leadership.
 - **Paragraphs:** Keep paragraphs short (2-4 sentences). One idea per paragraph. Long blocks of text get skipped.
 - **Length:** 150-300 words optimal. Longer posts that keep people reading outperform short posts they scroll past only when structure is clear and scannable.
 
@@ -59,6 +60,27 @@ Until then, it's manual workarounds. Every referral.
 - Acknowledges Medtech's progress (positive, not complaining)
 - Ends with reality check, not question
 - 140 words (scannable, holds attention)
+
+### Visual formatting (LinkedIn-native)
+
+LinkedIn does not render markdown. Use plain-text formatting that displays correctly and matches how high-engagement posts are structured on the platform.
+
+**Apply to every drafted post:**
+
+1. **Plain text only:** No markdown (no `**bold**`, no `#` headers). Write for paste-into-LinkedIn as-is.
+2. **Emoji bullets for lists:** Use one emoji per list item (e.g. 🔬 📬 📄 💊 for lab/messages/referrals/scripts, or 🎯 💡 ⏳ for points). Keeps lists scannable and on-brand.
+3. **Section labels:** For posts with 2–4 distinct arguments, use "1/" "2/" "3/" (or "1." "2." "3.") at the start of each section so readers can scan (e.g. "1/ The front door problem...", "2/ The urgent problem...", "3/ The next battleground...").
+4. **Section dividers:** Use a short line of dashes (———) between major sections to create visual breaks. Place after the intro block and between each numbered section.
+5. **Standalone punch lines:** Give key one-line takeaways their own line (e.g. "That race is over." or "Five years away, minimum.") for emphasis.
+6. **Sparse emoji for emphasis:** One emoji on the hook (e.g. ⏳ for "wait"), one on a key insight (e.g. 👀 "plain sight", 🎯 "battleground"), and one on the closing takeaway (e.g. 💡). Professional tone; avoid emoji in every sentence.
+7. **Short paragraphs:** Keep 2–4 sentences per paragraph. One idea per paragraph. Line breaks between paragraphs.
+
+**Optional (use when it fits):**
+- Numbered list "1." "2." "3." for formal or step-by-step lists.
+- Single-word or short CAPS for one key term only (use rarely; prefer punch-line structure).
+- "So:" or "So the big question?" before a payoff line.
+
+**Do not:** Use markdown, long unbroken blocks, or more than a handful of emojis per post.
 
 ---
 

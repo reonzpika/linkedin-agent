@@ -32,6 +32,13 @@ def main() -> None:
     if comments_then_schedule:
         argv = [a for a in argv if a != "--comments-then-schedule"]
     session_id = argv[0] if argv else None
+    # #region agent log
+    try:
+        _dbg = {"sessionId": "99fe3a", "hypothesisId": "A", "location": "execute_post.py:argv", "message": "execute_post flags", "data": {"main_post_only": main_post_only, "comments_then_schedule": comments_then_schedule, "session_id": session_id}, "timestamp": __import__("time").time() * 1000}
+        open(ROOT / "debug-99fe3a.log", "a", encoding="utf-8").write(__import__("json").dumps(_dbg) + "\n")
+    except Exception:
+        pass
+    # #endregion
     if not session_id:
         print("Error: No session_id provided")
         sys.exit(1)
@@ -75,9 +82,21 @@ def main() -> None:
             context.close()
             sys.exit(0)
         if main_post_only:
+            # #region agent log
+            try:
+                open(ROOT / "debug-99fe3a.log", "a", encoding="utf-8").write(__import__("json").dumps({"sessionId": "99fe3a", "hypothesisId": "A", "location": "execute_post.py:branch", "message": "calling executor_run_main_post_only", "data": {}, "timestamp": __import__("time").time() * 1000}) + "\n")
+            except Exception:
+                pass
+            # #endregion
             print("Running main post and first comment only (no Golden Hour comments)")
             result = executor_run_main_post_only(state, context)
         else:
+            # #region agent log
+            try:
+                open(ROOT / "debug-99fe3a.log", "a", encoding="utf-8").write(__import__("json").dumps({"sessionId": "99fe3a", "hypothesisId": "A", "location": "execute_post.py:branch", "message": "calling executor_run (full)", "data": {}, "timestamp": __import__("time").time() * 1000}) + "\n")
+            except Exception:
+                pass
+            # #endregion
             result = executor_run(state, context)
 
         (output_dir / "execution_results.json").write_text(
@@ -103,9 +122,21 @@ def main() -> None:
         print(f"Execution completed for {session_id}")
         sys.exit(0)
     except RuntimeError as e:
+        # #region agent log
+        try:
+            open(ROOT / "debug-99fe3a.log", "a", encoding="utf-8").write(__import__("json").dumps({"sessionId": "99fe3a", "hypothesisId": "D", "location": "execute_post.py:except", "message": "RuntimeError", "data": {"error": str(e)}, "timestamp": __import__("time").time() * 1000}) + "\n")
+        except Exception:
+            pass
+        # #endregion
         print(f"Execution failed: {e}")
         sys.exit(1)
     except Exception as e:
+        # #region agent log
+        try:
+            open(ROOT / "debug-99fe3a.log", "a", encoding="utf-8").write(__import__("json").dumps({"sessionId": "99fe3a", "hypothesisId": "D", "location": "execute_post.py:except", "message": "Exception", "data": {"error": str(e)}, "timestamp": __import__("time").time() * 1000}) + "\n")
+        except Exception:
+            pass
+        # #endregion
         print(f"Execution failed: {e}")
         sys.exit(1)
     finally:

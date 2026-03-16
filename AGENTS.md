@@ -1,7 +1,7 @@
 # AGENTS.md — ClinicPro LinkedIn Engine
 **Stewarded by:** Cursor IDE AI Agent  
 **Owner:** Dr Ryo Eguchi, ClinicPro  
-**Last updated:** 2026-03-11  
+**Last updated:** 2026-03-12  
 **Status:** Living document — update this file whenever the system improves
 
 ---
@@ -90,6 +90,7 @@ Before execution, assembly builds `session_state.json` from the other session fi
 - **linkedin-post-create**: Trigger "create linkedin post", "draft post about". Orchestrates prompt → plan → research → scout → draft → review in chat → assemble → schedule. See skill file for phases.
 - **linkedin-post-execute**: Manual "execute [session_id]" or invoked by scheduler. Runs `execute_post.py`, reports results. Requires session_state.json (assembled by linkedin-post-create).
 - **linkedin-agent-improve**: Feedback on voice, structure, or facts. Maps to knowledge file, derives rule, updates file (Self-Improvement Protocol).
+- **linkedin-reply-suggest**: Generates 2-3 reply options for a comment on your post. Trigger "suggest a reply", "reply options", "how should I reply to this comment". Reads voice_profile and algorithm_sop; outputs options in Insider GP voice with depth-score structure (acknowledge, add value, loop back with question).
 
 **Agent roles** (called by scripts with state dicts):
 
@@ -219,7 +220,7 @@ If the proposed rule change would alter Dr Ryo's public positioning, contradict 
 |---|---|---|---|
 | `clinicpro_strategy.md` | Three content pillars, audience priorities, 90-day plan | Researcher, Architect | Cursor (strategic changes require approval) |
 | `voice_profile.md` | Insider GP voice rules, banned terms, structural rules, pre-R&D constraints | Architect, Strategist | Cursor (announce in chat first) |
-| `algorithm_sop.md` | 2025 LinkedIn algorithm rules, post structure and readability (dwell time, bullets, short paragraphs), Golden Hour protocol, hashtag limits | Architect, Strategist, Scout | Cursor (announce in chat first) |
+| `algorithm_sop.md` | 2025 LinkedIn algorithm rules, post structure and readability (dwell time, bullets, short paragraphs), LinkedIn-native visual formatting (plain text, emoji bullets, 1/2/3/ section labels, ——— dividers), Golden Hour protocol, hashtag limits | Architect, Strategist, Scout | Cursor (announce in chat first) |
 | `linkedin-2026-playbook.md` | Data-driven 2026 playbook: Depth Score, dwell time, hook length (~140 chars), format performance. Informs algorithm_sop and voice_profile; not loaded by agents directly | Cursor (when updating structure/readability rules) | Cursor (announce in chat first) |
 | `nz_health_context.md` | NZ health system glossary, PHO structures, Medtech context | Researcher | Cursor (announce in chat first) |
 | `hashtag_library.md` | Approved hashtags and tagging rules | Architect | Cursor (announce in chat first) |
@@ -318,7 +319,7 @@ LinkedIn's UI is dynamic. Element references change between sessions, modals app
 
 **Post URL after publish:** `schedule_post` finds the new post on the feed by content matching (first 100 chars of post text) on `[data-id^='urn:li:activity:']` items, skipping inAppPromotion/aggregate; fallback is first valid post. If no specific URL is found, first comment is skipped.
 
-**Feed scraping:** `tools/browser.py` scrolls with `_scroll_feed_until_ready` (mouse wheel, random 2–3s delay, optional networkidle, break when target count or stalled for STALLED_THRESHOLD or max_scrolls). Only `urn:li:activity:` posts are kept (exclude inAppPromotion, aggregate). Extraction uses inner `[role='article']` when present and skips posts with snippet length < MIN_SNIPPET_LENGTH (50). Tune MIN_SNIPPET_LENGTH, STALLED_THRESHOLD, SCROLL_DELAY_MIN/MAX at top of browser.py if needed.
+**Feed scraping:** Before scrolling, the feed sort is set to "Recent" via the sort dropdown when possible; on failure, scraping continues with the default sort. `tools/browser.py` scrolls with `_scroll_feed_until_ready` (mouse wheel, random 2–3s delay, optional networkidle, break when target count or stalled for STALLED_THRESHOLD or max_scrolls). Only `urn:li:activity:` posts are kept (exclude inAppPromotion, aggregate). Extraction uses inner `[role='article']` when present and skips posts with snippet length < MIN_SNIPPET_LENGTH (50). Tune MIN_SNIPPET_LENGTH, STALLED_THRESHOLD, SCROLL_DELAY_MIN/MAX at top of browser.py if needed.
 
 ### Dehallucination triggers
 

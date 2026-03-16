@@ -50,6 +50,31 @@ def dismiss_modal_if_present(page: Any) -> None:
         pass
 
 
+def _set_feed_sort_to_recent(page: Any) -> None:
+    """
+    Set the LinkedIn feed sort to "Recent" via the sort dropdown.
+    On any failure, log a warning and return; scraping continues with default sort.
+    """
+    try:
+        trigger = page.locator(
+            "button.artdeco-dropdown__trigger"
+        ).filter(has_text="Sort by")
+        trigger.first.click(timeout=3000)
+        page.locator(".artdeco-dropdown__content--is-open").first.wait_for(
+            state="visible", timeout=3000
+        )
+        recent = page.locator(".artdeco-dropdown__content--is-open").get_by_text(
+            "Recent", exact=True
+        )
+        recent.first.click(timeout=3000)
+        _random_delay()
+    except Exception as e:
+        logger.warning(
+            "Could not set feed sort to Recent; scraping with default sort: {}",
+            e,
+        )
+
+
 def _filter_activity_urn_locators(locators: list[Any]) -> list[Any]:
     """
     Keep only locators whose data-id is strictly urn:li:activity: (exclude inAppPromotion, aggregate).
@@ -305,6 +330,7 @@ def scrape_personal_feed(context: Any, max_posts: int = 30) -> list[dict[str, An
         )
         _random_delay()
         dismiss_modal_if_present(page)
+        _set_feed_sort_to_recent(page)
 
         max_scroll_attempts = 150
         scroll_count = 0

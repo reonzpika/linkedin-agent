@@ -26,6 +26,30 @@ and note the session it was applied in.
 
 <!-- New post entries are inserted below this line -->
 
+## 2026-03-11_sdhr-2026-gp-workflow
+**Date:** 2026-03-13
+**Pillar:** pillar_1
+**Overall score:** good
+**Hook:** Five things about the Shared Digital Health Record that GPs need to know. It goes live for general p
+
+| Metric | Value |
+|---|---|
+| Impressions | 396 |
+| Reactions | 8 |
+| Comments | 5 |
+| Reposts | 0 |
+| Saves | 1 |
+| Sends | 0 |
+| Profile views | 1 |
+| Followers gained | 0 |
+| GH replies | 2/6 |
+| GH comment impressions | 63 |
+| GH comment likes | 1 |
+
+**System updates flagged:** none
+
+---
+
 ## 2026-03-05_medtech-ai-deep-integration
 **Date:** 2026-03-11
 **Pillar:** pillar_1
