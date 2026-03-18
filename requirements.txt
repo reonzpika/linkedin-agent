@@ -21,6 +21,7 @@ langsmith>=0.2.0
 python-dotenv>=1.0.0
 loguru>=0.7.0
 pytz>=2024.1
+pillow>=10.0.0
 
 # Code quality
 black>=24.0.0

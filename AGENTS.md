@@ -339,6 +339,8 @@ If the same trigger recurs, update `dehallucination_triggers.md` with the confir
 
 The Researcher uses Tavily (NZ health search), Crawl4AI (local, free, full-page content), and Claude Haiku for summarisation. `research_with_agent` runs Tavily search, Crawl4AI fetch, then Claude Haiku; `fetch_page_content` uses Crawl4AI AsyncWebCrawler with `headless=True` (separate from the headed LinkedIn browser in `browser.py`). FIRECRAWL_API_KEY is no longer required. If Phase 4 fails with "Tavily: 0 results", "Crawl4AI returned 0 characters", or "research_with_agent returned empty", fix the tools first: confirm TAVILY_API_KEY (app.tavily.com), ANTHROPIC_API_KEY, and Crawl4AI install (run `python -m crawl4ai-download` if browser not installed), then re-run the test suite. On Windows, Crawl4AI uses `verbose=False` in `tools/search.py` to avoid console Unicode (charmap) errors; if issues persist, set `PYTHONIOENCODING=utf-8`.
 
+Carousel image generation (`scripts/generate_images.py`) uses the laozhang.ai endpoint via **requests** (no SDK). Set `LAOZHANG_API_KEY` (sk-xxx format) and optionally `LAOZHANG_API_URL` (default: `https://api.laozhang.ai/v1beta/models/gemini-3-pro-image-preview:generateContent`). If either is missing, the script exits with a clear error. Only Pillow is required in addition to existing dependencies.
+
 ---
 
 ## Output quality tests
