@@ -170,6 +170,11 @@ def main() -> int:
         action="store_true",
         help="Skip reference image attachment (use for first generation or style reset).",
     )
+    parser.add_argument(
+        "--compile-pdf",
+        action="store_true",
+        help="After generating images, compile all slides into a single carousel.pdf in the session images directory.",
+    )
     args = parser.parse_args()
 
     session_dir = Path(args.session_dir)
@@ -328,6 +333,25 @@ def main() -> int:
     # Sort manifest by slide number and write
     manifest.sort(key=lambda x: x.get("slide_number", 0))
     manifest_file.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+    if args.compile_pdf:
+        try:
+            from PIL import Image as PILImage
+            generated = [m for m in manifest if m.get("status") == "generated" and m.get("path")]
+            generated.sort(key=lambda x: x.get("slide_number", 0))
+            if generated:
+                pdf_path = images_dir / "carousel.pdf"
+                pil_images = [PILImage.open(ROOT / m["path"]).convert("RGB") for m in generated]
+                pil_images[0].save(
+                    str(pdf_path),
+                    save_all=True,
+                    append_images=pil_images[1:],
+                )
+                print(f"  Carousel PDF: {pdf_path}")
+            else:
+                print("  No generated slides found for PDF compilation.")
+        except Exception as e:
+            print(f"  PDF compilation failed: {e}")
 
     print(f"\nImage generation complete.")
     print(f"  Success: {success_count}/{total} slides")

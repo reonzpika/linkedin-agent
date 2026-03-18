@@ -104,10 +104,22 @@ After regeneration, return to Step 4 and show updated results.
 
 ---
 
-### Step 6: After approval
+### Step 6: Compile carousel PDF
 
-Once the user approves the images (or chooses to skip), proceed to assembly:
-> "Images approved. Proceeding to assembly."
+Once the user approves the images, compile the PDF before proceeding to assembly:
+
+```bash
+python scripts/generate_images.py --session-dir outputs/<session_id> --compile-pdf
+```
+
+This reads the existing manifest and stitches approved slides into `outputs/<session_id>/images/carousel.pdf`. It does not regenerate any images.
+
+If compilation succeeds, confirm in chat:
+> "Carousel PDF compiled: outputs/[session_id]/images/carousel.pdf — ready for upload to LinkedIn."
+
+If compilation fails, tell the user and offer to retry. The PDF step failing does not block assembly — the user can compile manually later.
+
+### Step 7: Proceed to assembly
 
 Continue with Phase 5 of linkedin-post-create (assemble_session_state.py + scheduling).
 

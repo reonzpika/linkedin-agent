@@ -41,6 +41,20 @@ def _build_slide_prompt(
         ),
     }.get(pillar, "Technical schematic mood.")
 
+    if slide_number == 1:
+        zone_b_instruction = (
+            "Zone B is typographic layout only — no illustration, no diagram, no figures. "
+            "Use only text: one subtitle line in DM Sans SemiBold (max 8 words) framing the argument, "
+            "and optionally one Kalam annotation (max 3 words) as a teaser. Generous white space. "
+            "This slide stops the scroll; it does not explain the content."
+        )
+    else:
+        zone_b_instruction = (
+            "Draw Zone B as a dense hand-drawn editorial illustration that fills the available space completely. "
+            "Every element must be labelled with legible text. Include at least one simple line-art figure (GP silhouette, patient, server, or building — drawn in 3–4 strokes, no shading). "
+            "Style: medical textbook sketch meets tech whiteboard. Clean charcoal ink lines (1.5–2px, slightly imperfect), dark-coral annotations, off-white background. No empty areas. No gradients. No drop shadows."
+        )
+
     return f"""Generate a LinkedIn carousel slide ({slide_number} of {total_slides}) in the Dr Ryo Eguchi brand system.
 
 BRAND SYSTEM (apply exactly):
@@ -55,7 +69,7 @@ BRAND SYSTEM (apply exactly):
 - No pure white, no blue, no teal, no green, no purple, no gradients, no drop shadows, no 3D effects
 
 ZONE B CONTENT:
-Draw Zone B as a dense hand-drawn editorial illustration that fills the available space completely. Every element must be labelled with legible text. Include at least one simple line-art figure (GP silhouette, patient, server, or building — drawn in 3–4 strokes, no shading). Style: medical textbook sketch meets tech whiteboard. Clean charcoal ink lines (1.5–2px, slightly imperfect), dark-coral annotations, off-white background. No empty areas. No gradients. No drop shadows.
+{zone_b_instruction}
 
 {zone_b_description}
 
@@ -109,6 +123,7 @@ Brand spec summary:
 
 RULES for Zone A headlines:
 - Slide 1: the main post hook or a reframed version (not a question)
+- Slide 1 Zone B is typographic only — no diagrams, no arrows, no boxes, no figures. One subtitle line (max 8 words) framing the argument, optionally one Kalam annotation (max 3 words) as a teaser. Generous white space. This slide stops the scroll; it does not explain the content.
 - Slides 2–7: one concrete point per slide — short labels, not sentences
 - Slide 8: "The bottom line" or equivalent
 
