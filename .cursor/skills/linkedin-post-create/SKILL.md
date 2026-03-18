@@ -130,10 +130,10 @@ What would you like to do?
 - "Show other targets" to see the full scout list (scout_targets_all in engagement.json) and pick a different 6, then re-run draft for new comments
 ```
 
-4. **STOP and wait for user response.** Do **not** run Phase 5 (assemble, schedule, or execute) until the user has explicitly approved in chat. Treat as approval any of: "Approve", "yes", "go ahead", "schedule it", "schedule", "schedule for me", "proceed", "proceed with the next phase", "next phase" (when the last substantive output was this draft). If the plan says "execute now", that means after approval the user wants immediate execution; it does **not** mean you may skip this approval step.
+4. **STOP and wait for user response.** Do **not** run Phase 4c or Phase 5 (assemble, schedule, or execute) until the user has explicitly approved in chat. Treat as approval any of: "Approve", "yes", "go ahead", "schedule it", "schedule", "schedule for me", "proceed", "proceed with the next phase", "next phase" (when the last substantive output was this draft). If the plan says "execute now", that means after approval the user wants immediate execution; it does **not** mean you may skip this approval step.
 5. Handle user response:
-   - **Approve (including "proceed", "schedule for me", "schedule", "next phase"):** Move to Phase 5. Run Phase 5 in full (assemble, then schedule_execution_auto_slot, write approved.json, append pending_posts.json, confirm). Do not skip scheduling unless the user explicitly said "execute now".
-   - **Execute now:** Run Phase 5 step 1 (assemble) only, then run `execute_post.py` (or use --comments-then-schedule for 20 min gap); do not call schedule_execution_auto_slot.
+   - **Approve (including "proceed", "schedule for me", "schedule", "next phase"):** Move to Phase 4c (image generation check) before Phase 5.
+   - **Execute now:** Move to Phase 4c, then after image step run Phase 5 step 1 (assemble) only, then run `execute_post.py`; do not call schedule_execution_auto_slot.
    - **Edit request:** Apply changes as follows, then show a diff and ask "Approve these changes?":
      - Post body edits: update `draft_final.md`.
      - Hashtag, first comment, or mentions edits: update `draft_meta.json`.
@@ -143,11 +143,28 @@ What would you like to do?
 
 ---
 
+#### Phase 4c: Image generation (optional, carousel posts only)
+
+This phase runs after draft approval and before assembly. It requires explicit user confirmation before any images are generated.
+
+1. **Check whether images are needed:** Read `plan.json`. If `pillar` is `2` (Building in Public) or the plan text mentions carousel, document, or slides, prompt the user:
+   > "This post is suited to a carousel format. Would you like to generate 8 branded slides before scheduling? Say **yes** to generate images, or **skip** to go straight to assembly."
+
+   If the post is clearly a text-only post (no carousel signal in plan.json), skip this phase and proceed directly to Phase 5.
+
+2. **Wait for explicit confirmation.** Do **not** call `scripts/generate_images.py` or take any image-related action until the user says "yes", "generate", "generate images", "make slides", or equivalent. "Approve" or "proceed" alone (without carousel context) does **not** count as image confirmation — only a clear affirmative to the image prompt above.
+
+3. **If the user confirms:** Follow the `linkedin-image-generate` skill in full (Steps 1–8: prerequisites check, plan-only run, present slide plan for approval/edits, generate images, present results, handle regeneration, compile PDF). When the skill reaches Step 8 ("proceed to assembly"), continue to Phase 5 below.
+
+4. **If the user skips:** Proceed directly to Phase 5.
+
+---
+
 ### Phase 5: Assembly and scheduling
 
-**Only after the user has explicitly approved the draft in chat (see approval phrases in Phase 4b step 4).**
+**Only after the user has explicitly approved the draft in chat (Phase 4b) and Phase 4c (image generation or skip) is complete.**
 
-**Mandatory:** When the user has approved the draft, you MUST run Phase 5 in full: steps 1–7 below. Do not run only step 1 (assemble) and then wait. **Exception:** If the user said "execute now", run step 1 only, then run `python execute_post.py <session_id>` (or with --comments-then-schedule for the 20 min gap); skip steps 2–5 (no schedule_execution_auto_slot, no approved.json/pending_posts).
+**Mandatory:** You MUST run Phase 5 in full: steps 1–7 below. Do not run only step 1 (assemble) and then wait. **Exception:** If the user said "execute now", run step 1 only, then run `python execute_post.py <session_id>` (or with --comments-then-schedule for the 20 min gap); skip steps 2–5 (no schedule_execution_auto_slot, no approved.json/pending_posts).
 
 1. **Assemble session state:** Run `python scripts/assemble_session_state.py --session-dir outputs/<session_id>` (from repo root). This writes `session_state.json` so `execute_post.py` can run later. If the script fails, show the error and stop.
 

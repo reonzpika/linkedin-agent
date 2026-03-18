@@ -175,6 +175,11 @@ def main() -> int:
         action="store_true",
         help="After generating images, compile all slides into a single carousel.pdf in the session images directory.",
     )
+    parser.add_argument(
+        "--plan-only",
+        action="store_true",
+        help="Run Image Architect to build slide plan and write images_plan.json, then exit without generating any images.",
+    )
     args = parser.parse_args()
 
     session_dir = Path(args.session_dir)
@@ -225,22 +230,77 @@ def main() -> int:
         except Exception:
             existing_manifest = []
 
-    # Run Image Architect to build prompts
-    print("Building slide prompts via Image Architect...")
-    from agents.image_architect import run as image_architect_run
+    # Plan file: written by --plan-only, read back on subsequent generation runs
+    plan_output_file = session_dir / "images_plan.json"
 
-    state = {
-        "post_draft": post_draft,
-        "pillar": pillar,
-        "raw_input": raw_input,
-        "plan": plan_data.get("plan") or "",
-    }
-    arch_result = image_architect_run(state)
-    image_prompts: list[dict] = arch_result.get("image_prompts") or []
+    # Run Image Architect to build prompts (or load approved plan if it exists)
+    if plan_output_file.exists() and not args.plan_only:
+        print("Loading approved slide plan from images_plan.json...")
+        try:
+            saved_plan = json.loads(plan_output_file.read_text(encoding="utf-8"))
+            image_prompts_raw: list[dict] = saved_plan.get("slides") or []
+        except Exception:
+            image_prompts_raw = []
+        if image_prompts_raw:
+            # Rebuild full prompts from the saved headlines/descriptions so edits are respected
+            from agents.image_architect import _build_slide_prompt
+            lines_hook = [l.strip() for l in post_draft.split("\n") if l.strip()]
+            post_hook = lines_hook[0][:140] if lines_hook else raw_input[:140]
+            total_saved = len(image_prompts_raw)
+            image_prompts: list[dict] = []
+            for s in image_prompts_raw:
+                n = s.get("slide_number", len(image_prompts) + 1)
+                headline = (s.get("zone_a_headline") or "").strip()
+                zone_b = (s.get("zone_b_description") or "").strip()
+                prompt = _build_slide_prompt(n, total_saved, headline, zone_b, pillar, post_hook)
+                image_prompts.append({
+                    "slide_number": n,
+                    "zone_a_headline": headline,
+                    "zone_b_description": zone_b,
+                    "prompt": prompt,
+                    "filename": f"slide_{n:02d}.png",
+                })
+            print(f"Loaded {len(image_prompts)} slides from approved plan.")
+        else:
+            image_prompts = []
+    else:
+        print("Building slide prompts via Image Architect...")
+        from agents.image_architect import run as image_architect_run
+
+        state = {
+            "post_draft": post_draft,
+            "pillar": pillar,
+            "raw_input": raw_input,
+            "plan": plan_data.get("plan") or "",
+        }
+        arch_result = image_architect_run(state)
+        image_prompts = arch_result.get("image_prompts") or []
 
     if not image_prompts:
         print("Error: Image Architect produced no prompts.", file=sys.stderr)
         return 1
+
+    # --plan-only: write images_plan.json and exit without generating images
+    if args.plan_only:
+        plan_data_out = {
+            "slides": [
+                {
+                    "slide_number": p["slide_number"],
+                    "zone_a_headline": p["zone_a_headline"],
+                    "zone_b_description": p["zone_b_description"],
+                }
+                for p in image_prompts
+            ]
+        }
+        plan_output_file.write_text(json.dumps(plan_data_out, indent=2), encoding="utf-8")
+        print(f"\nSlide plan written to {plan_output_file}")
+        print(f"\n{'='*60}")
+        for p in image_prompts:
+            print(f"\nSlide {p['slide_number']}: {p['zone_a_headline']}")
+            print(f"  {p['zone_b_description']}")
+        print(f"\n{'='*60}")
+        print("Review the plan above. Edit images_plan.json if needed, then run without --plan-only to generate images.")
+        return 0
 
     print(f"Image Architect produced {len(image_prompts)} slide prompts.")
 

@@ -27,10 +27,13 @@ def main() -> None:
     argv = sys.argv[1:]
     main_post_only = "--main-post-only" in argv
     comments_then_schedule = "--comments-then-schedule" in argv
+    comments_only = "--comments-only" in argv
     if main_post_only:
         argv = [a for a in argv if a != "--main-post-only"]
     if comments_then_schedule:
         argv = [a for a in argv if a != "--comments-then-schedule"]
+    if comments_only:
+        argv = [a for a in argv if a != "--comments-only"]
     session_id = argv[0] if argv else None
     # #region agent log
     try:
@@ -65,6 +68,15 @@ def main() -> None:
 
     context = get_browser_context()
     try:
+        if comments_only:
+            print("Posting 6 Golden Hour comments only (no main post). You will post the main post manually.")
+            result = executor_run_comments_only(state, context)
+            (output_dir / "execution_results.json").write_text(
+                json.dumps(result, indent=2), encoding="utf-8"
+            )
+            print(f"Done. 6 comments posted for {session_id}. Post your main post manually when ready.")
+            context.close()
+            sys.exit(0)
         if comments_then_schedule:
             print("Posting 6 Golden Hour comments, then scheduling main post in 20 minutes...")
             result = executor_run_comments_only(state, context)

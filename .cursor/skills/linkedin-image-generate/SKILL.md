@@ -28,34 +28,68 @@ Wait for confirmation before running the script.
 
 ### Step 2: Check prerequisites
 
-1. Verify `GOOGLE_GENAI_API_KEY` is set in .env. If missing, tell the user:
-   > "GOOGLE_GENAI_API_KEY is not set. Get a key from https://aistudio.google.com/app/apikey and add it to .env as: GOOGLE_GENAI_API_KEY=your_key_here"
+1. Verify `LAOZHANG_API_KEY` is set in `.env`. If missing, tell the user:
+   > "LAOZHANG_API_KEY is not set. Add it to .env as: LAOZHANG_API_KEY=sk-xxx (from laozhang.ai)"
    Then stop.
 
 2. Check that `draft_final.md` exists in the session folder. If missing, tell the user to run the linkedin-post-create skill first.
 
-3. Check that `google-genai` and `pillow` are installed:
+3. Check that `requests` and `pillow` are installed:
    ```bash
-   python -c "from google import genai; from PIL import Image; print('OK')"
+   python -c "import requests; from PIL import Image; print('OK')"
    ```
    If not installed, run:
    ```bash
-   pip install google-genai pillow
+   pip install requests pillow
    ```
 
 ---
 
-### Step 3: Run image generation
+### Step 3: Build and approve the slide plan
+
+Run the Image Architect in plan-only mode:
+```bash
+python scripts/generate_images.py --session-dir outputs/<session_id> --plan-only
+```
+
+This runs in seconds (no API calls). It writes `images_plan.json` and prints each slide's headline and Zone B description.
+
+Present the plan in chat:
+```
+Slide plan for [session_id]
+
+Slide 1: [zone_a_headline]
+  [zone_b_description]
+
+Slide 2: [zone_a_headline]
+  [zone_b_description]
+
+... (all 8 slides)
+
+What would you like to do?
+- "Approve" to generate images from this plan
+- Edit any slide (e.g. "Change slide 3 headline to: NZ GPs spend 40% on admin")
+```
+
+**Wait for explicit approval or edits before generating any images.**
+
+If the user requests edits, apply them directly to `outputs/<session_id>/images_plan.json` (update `zone_a_headline` and/or `zone_b_description` for the named slides), then show the updated plan and ask for approval again. Do **not** re-run the `--plan-only` script after edits — edit the JSON file directly.
+
+Once approved, proceed to Step 4.
+
+---
+
+### Step 4: Run image generation
 
 Run from repo root:
 ```bash
 python scripts/generate_images.py --session-dir outputs/<session_id>
 ```
 
-This takes 2–4 minutes for 8 slides (API calls are sequential with brief delays).
+The script reads the approved `images_plan.json` automatically (no re-run of Image Architect). This takes 2–4 minutes for 8 slides (API calls are sequential with brief delays).
 
 **While running, tell the user:**
-> "Generating 8 slides — this takes about 2–4 minutes. Slide 1 is generated first and used as the style reference for slides 2–8 to ensure visual consistency."
+> "Generating 8 slides from the approved plan — this takes about 2–4 minutes. Slide 1 is generated first and used as the style reference for slides 2–8 to ensure visual consistency."
 
 If the script exits non-zero, show the error and offer to retry failed slides:
 ```bash
@@ -64,7 +98,7 @@ python scripts/generate_images.py --session-dir outputs/<session_id> --slides <f
 
 ---
 
-### Step 4: Present results
+### Step 5: Present results
 
 After the script completes, read `outputs/<session_id>/images_manifest.json` and present:
 
@@ -80,7 +114,7 @@ Slides:
 Images saved to: outputs/[session_id]/images/
 
 What would you like to do?
-- "Approve images" to proceed to assembly
+- "Approve images" to proceed to PDF compilation and assembly
 - "Regenerate slide N" to redo a specific slide (e.g. "regenerate slide 3")
 - "Regenerate all" to start fresh (use --no-reference flag)
 - "Skip images" to proceed to assembly without images
@@ -88,7 +122,7 @@ What would you like to do?
 
 ---
 
-### Step 5: Handle regeneration requests
+### Step 6: Handle regeneration requests
 
 If the user asks to regenerate specific slides:
 ```bash
@@ -100,11 +134,11 @@ If the user asks to regenerate all (style reset):
 python scripts/generate_images.py --session-dir outputs/<session_id> --no-reference
 ```
 
-After regeneration, return to Step 4 and show updated results.
+After regeneration, return to Step 5 and show updated results.
 
 ---
 
-### Step 6: Compile carousel PDF
+### Step 7: Compile carousel PDF
 
 Once the user approves the images, compile the PDF before proceeding to assembly:
 
@@ -119,7 +153,7 @@ If compilation succeeds, confirm in chat:
 
 If compilation fails, tell the user and offer to retry. The PDF step failing does not block assembly — the user can compile manually later.
 
-### Step 7: Proceed to assembly
+### Step 8: Proceed to assembly
 
 Continue with Phase 5 of linkedin-post-create (assemble_session_state.py + scheduling).
 
@@ -141,11 +175,12 @@ Slide 1 is always generated first without a reference image. Once slide 1 exists
 
 ## Error handling
 
-- **API key missing:** Tell user to set GOOGLE_GENAI_API_KEY and stop.
-- **Quota exceeded:** Tell user they've hit Gemini API rate limits; suggest waiting 60 seconds and retrying failed slides.
-- **All slides failed:** Check that GOOGLE_GENAI_API_KEY is valid at aistudio.google.com.
+- **API key missing:** Tell user to set `LAOZHANG_API_KEY` in `.env` and stop.
+- **Rate limit / timeout:** Suggest waiting 60 seconds and retrying failed slides with `--slides`.
+- **All slides failed:** Check that `LAOZHANG_API_KEY` is valid at laozhang.ai.
 - **Some slides failed:** Retry with `--slides` flag for specific slides only.
 - **Pillow not installed:** Run `pip install pillow` and retry.
+- **Plan approval edits not reflected:** Ensure edits were saved to `images_plan.json` before running generation (the script reads that file automatically when it exists).
 
 ---
 
