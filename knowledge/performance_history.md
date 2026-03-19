@@ -21,10 +21,35 @@ and note the session it was applied in.
 
 | # | Flagged in | Implemented in | File | What |
 |---|---|---|---|---|
+| 2 | 2026-03-16_healthos | 2026-03-16_healthos | `scripts/pick_targets.py` | Topic-alignment filter for Golden Hour target selection: Picker prompt strengthened so at least 4 of 6 chosen targets should be on the same specific topic as the post; deprioritise health-adjacent but off-topic candidates. |
 
 ---
 
 <!-- New post entries are inserted below this line -->
+
+## 2026-03-16_healthos
+**Date:** 2026-03-19
+**Pillar:** pillar_1
+**Overall score:** good
+**Hook:** Every tech giant wants to own healthcare. Here's why they'll have to wait. ⏳
+
+| Metric | Value |
+|---|---|
+| Impressions | 523 |
+| Reactions | 8 |
+| Comments | 5 |
+| Reposts | 0 |
+| Saves | 2 |
+| Sends | 0 |
+| Profile views | 2 |
+| Followers gained | 2 |
+| GH replies | 1/6 |
+| GH comment impressions | 131 |
+| GH comment likes | 1 |
+
+**System updates flagged:** 2
+
+---
 
 ## 2026-03-11_sdhr-2026-gp-workflow
 **Date:** 2026-03-13

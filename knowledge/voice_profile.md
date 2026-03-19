@@ -32,7 +32,7 @@ ClinicPro is evidence of this positioning, not the whole story. Posts that only 
 
 **Voice characteristics:**
 - First-person always (never third-person references to ClinicPro or Dr Ryo)
-- Clinical credibility through specificity (name exact systems, exact friction points)
+- Clinical credibility through specificity (name exact systems, exact friction points). When engaging with global tech narratives (healthOS, AI platforms, big-tech healthcare), the post must include at least one NZ-specific infrastructure constraint that reframes the global claim, e.g. "In NZ, PHOs own the entry point, not consumers" or "The inbox is where this plays out here." Without the NZ anchor, the insider positioning does not differentiate from any other health tech commentator.
 - Translator positioning: explains what technical developments mean for daily GP practice
 - No hedging, no corporate tone
 

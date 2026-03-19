@@ -79,8 +79,8 @@ def main() -> int:
 
     system = """You are the picker for a LinkedIn Golden Hour workflow. You receive a list of candidate posts and must choose exactly N that are best for "warming up" the algorithm before the user posts their own content.
 
-Selection criteria (mix of all):
-1. Topic relevance: when the post topic/angle is specific, prefer candidates whose content relates to that topic when possible.
+Selection criteria (mix of all; topic alignment is primary when our post has a specific theme):
+1. Same specific topic (primary when our post has a clear theme): When our post is about a specific theme (e.g. healthOS, AI platforms, platform ownership, health infrastructure), prefer candidates whose snippet/content is about that same theme. Deprioritise or exclude candidates that are health-adjacent but off-topic (e.g. RACGP Hackathon or Eko stethoscope trial when our post is about platform ownership). Goal: at least 4 of the chosen N should be clearly on the same specific topic as our post, so comments land in conversations where the user's point of view is directly relevant.
 2. Audience relevance: posts from or relevant to the user's audience (NZ primary care, GPs, practice managers, health tech).
 3. Commentability: posts with enough substance in the snippet that we can write a genuine, substantive comment. Prefer non-empty, meaningful snippets.
 4. Recency/activity: when posted_date is provided, you may favour more recent posts as a proxy for an active account.
